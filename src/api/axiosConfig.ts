@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// Instancia base apuntando a Spring Boot
+// Instancia base apuntando a Spring Boot en Render
 export const api = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  baseURL: 'https://credihogar-api.onrender.com/api',
   headers: {
     'Content-Type': 'application/json',
   },
