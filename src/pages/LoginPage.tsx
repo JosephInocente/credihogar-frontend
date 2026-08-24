@@ -3,7 +3,6 @@ import {
   Button, TextField, Box, Typography, Container, Alert, Paper, CssBaseline, CircularProgress 
 } from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../api/axiosConfig';
 
 import logoCredi from '../assets/LOGO_CREDI.png';
@@ -18,18 +17,15 @@ const theme = createTheme({
 });
 
 export const LoginPage = () => {
-  const navigate = useNavigate(); 
-  
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  // 1. Agregamos un estado para controlar la animación de carga
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true); // 2. Encendemos el spinner al hacer clic
+    setIsLoading(true);
 
     try {
       const response = await api.post('/auth/login', { username, password });
@@ -50,18 +46,17 @@ export const LoginPage = () => {
 
       localStorage.setItem('usuarioId', userId.toString());
 
-      // REDIRECCIÓN INTELIGENTE SEGÚN EL ROL
+      // REDIRECCIÓN DURA (F5 AUTOMÁTICO) PARA EVITAR PANTALLA BLANCA
       if (userRole === 'TRABAJADOR' || userRole === 'ROLE_TRABAJADOR' || (Array.isArray(userRole) && userRole.includes('TRABAJADOR'))) {
-        navigate('/ventas-trabajador');
+        window.location.href = '/ventas-trabajador';
       } else {
-        navigate('/dashboard');
+        window.location.href = '/dashboard';
       }
       
     } catch (err) {
       setError('Credenciales incorrectas o servidor desconectado');
-    } finally {
-      setIsLoading(false); // 3. Apagamos el spinner sin importar si hubo error o éxito
-    }
+      setIsLoading(false); // Apagamos el spinner solo si hay error. Si hay éxito, sigue girando hasta que cambie la página.
+    } 
   };
 
   return (
@@ -81,7 +76,6 @@ export const LoginPage = () => {
               <TextField margin="normal" required fullWidth label="Usuario" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} variant="outlined" disabled={isLoading} />
               <TextField margin="normal" required fullWidth label="Contraseña" type="password" value={password} onChange={(e) => setPassword(e.target.value)} variant="outlined" disabled={isLoading} />
               
-              {/* 4. Condicionamos el botón para mostrar el texto o el spinner */}
               <Button 
                 type="submit" 
                 fullWidth 
