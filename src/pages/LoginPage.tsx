@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  Button, TextField, Box, Typography, Container, Alert, Paper, CssBaseline 
+  Button, TextField, Box, Typography, Container, Alert, Paper, CssBaseline, CircularProgress 
 } from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
@@ -23,10 +23,13 @@ export const LoginPage = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  // 1. Agregamos un estado para controlar la animación de carga
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true); // 2. Encendemos el spinner al hacer clic
 
     try {
       const response = await api.post('/auth/login', { username, password });
@@ -56,6 +59,8 @@ export const LoginPage = () => {
       
     } catch (err) {
       setError('Credenciales incorrectas o servidor desconectado');
+    } finally {
+      setIsLoading(false); // 3. Apagamos el spinner sin importar si hubo error o éxito
     }
   };
 
@@ -73,10 +78,19 @@ export const LoginPage = () => {
             {error && <Alert severity="error" sx={{ width: '100%', mb: 2 }}>{error}</Alert>}
             
             <Box component="form" onSubmit={handleLogin} sx={{ width: '100%' }}>
-              <TextField margin="normal" required fullWidth label="Usuario" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} variant="outlined" />
-              <TextField margin="normal" required fullWidth label="Contraseña" type="password" value={password} onChange={(e) => setPassword(e.target.value)} variant="outlined" />
-              <Button type="submit" fullWidth variant="contained" size="large" sx={{ mt: 3, mb: 2, py: 1.5, fontWeight: 'bold', textTransform: 'none', fontSize: '1.1rem' }}>
-                Ingresar al Sistema
+              <TextField margin="normal" required fullWidth label="Usuario" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} variant="outlined" disabled={isLoading} />
+              <TextField margin="normal" required fullWidth label="Contraseña" type="password" value={password} onChange={(e) => setPassword(e.target.value)} variant="outlined" disabled={isLoading} />
+              
+              {/* 4. Condicionamos el botón para mostrar el texto o el spinner */}
+              <Button 
+                type="submit" 
+                fullWidth 
+                variant="contained" 
+                size="large" 
+                disabled={isLoading}
+                sx={{ mt: 3, mb: 2, py: 1.5, fontWeight: 'bold', textTransform: 'none', fontSize: '1.1rem' }}
+              >
+                {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Ingresar al Sistema'}
               </Button>
             </Box>
           </Paper>
