@@ -142,12 +142,11 @@ export const VehiculosViajesPage = () => {
 
   const abrirModalCarga = async (viaje: any) => {
     setViajeACargar(viaje); 
-    setItemsCarga([]); // Limpiamos primero
+    setItemsCarga([]); 
     setPasoModal(1); 
     setFormItem({ presentacionId: '', cantidad: '', precioVenta: '', nombreInfo: '', maxStock: 0 }); 
     setOpenCarga(true);
 
-    // NUEVO: Buscar si el vehículo ya tiene stock mantenido de viajes anteriores
     try {
       const idVehiculo = viaje.vehiculoId || viaje.vehiculo_id || viaje.vehiculo?.id;
       const res = await api.get(`/logistica/vehiculos/${idVehiculo}/inventario`);
@@ -158,7 +157,7 @@ export const VehiculosViajesPage = () => {
           nombreInfo: `${i.producto_nombre || i.presentacion?.producto?.nombre} - ${i.presentacion_nombre || i.presentacion?.nombre}`,
           cantidad: i.cantidad,
           precioVenta: i.precio_venta || i.presentacion?.precio || 0,
-          esPrevio: true // Banderita para identificar que ya estaba en el camión
+          esPrevio: true 
         }));
         setItemsCarga(inventarioPrevio);
       }
@@ -190,8 +189,6 @@ export const VehiculosViajesPage = () => {
 
     if (existeIndex >= 0) {
       const nuevaLista = [...itemsCarga];
-      
-      // Solo validamos el maxStock contra la cantidad "nueva" que estamos intentando subir
       const cantidadNuevaExistente = nuevaLista[existeIndex].esPrevio ? 0 : nuevaLista[existeIndex].cantidad;
       
       if (cantidadNuevaExistente + cant > formItem.maxStock) {
@@ -199,7 +196,6 @@ export const VehiculosViajesPage = () => {
       }
       
       nuevaLista[existeIndex].cantidad += cant;
-      // Si era previo, al sumarle más, ya tiene componentes nuevos, pero sigue manteniendo su base.
       setItemsCarga(nuevaLista);
     } else {
       if (cant > formItem.maxStock) return alert(`Stock disponible en almacén: ${formItem.maxStock}`);
@@ -225,7 +221,6 @@ export const VehiculosViajesPage = () => {
     items.forEach((item: any) => {
       const importe = item.cantidad * item.precioVenta;
       totalPotencial += importe;
-      
       const partesNombre = item.nombreInfo.split(' - ');
       const nombreProducto = partesNombre[0] || item.nombreInfo;
       const presentacion = partesNombre[1] || '';
@@ -302,7 +297,8 @@ export const VehiculosViajesPage = () => {
         </body>
       </html>
     `;
-    ventanaImpresion.document.write(htmlPDF);
+    
+    (ventanaImpresion.document as any).write(htmlPDF);
     ventanaImpresion.document.close();
     ventanaImpresion.focus();
     setTimeout(() => { ventanaImpresion.print(); }, 500);
@@ -310,8 +306,6 @@ export const VehiculosViajesPage = () => {
 
   const confirmarDespacho = async () => {
     try {
-      // NUEVO: Solo enviamos al backend los productos que SON NUEVOS (no los que ya estaban en el camión)
-      // Si a un producto viejo se le sumó más cantidad, el backend lo sumará gracias al ON CONFLICT
       const itemsNuevos = itemsCarga.filter(i => !i.esPrevio).map(i => ({ 
         presentacionId: parseInt(i.presentacionId), 
         cantidad: i.cantidad 
@@ -320,7 +314,6 @@ export const VehiculosViajesPage = () => {
       const payload = { items: itemsNuevos };
       await api.post(`/logistica/viajes/${viajeACargar.id}/carga`, payload);
       
-      // La guía imprime TODOS los items (viejos y nuevos)
       imprimirGuiaCargaPDF(viajeACargar, itemsCarga);
       
       alert("🚛 ¡Camión cargado y despachado exitosamente!"); 
@@ -388,7 +381,6 @@ export const VehiculosViajesPage = () => {
               <h1>Reporte de Liquidación de Viaje</h1>
               <p>Sistema de Gestión Logística - CREDI HOGAR PLUS</p>
             </div>
-            
             <div class="info-box">
               <table style="margin-bottom: 0;">
                 <tr>
@@ -404,11 +396,9 @@ export const VehiculosViajesPage = () => {
                 </tr>
               </table>
             </div>
-
             <div class="total-recaudado">
               Total a Rendir en Caja: S/ ${datos?.totalRecaudado?.toFixed(2) || '0.00'}
             </div>
-
             <h3>Detalle de Inventario y Movimientos</h3>
             <table>
               <thead>
@@ -423,20 +413,16 @@ export const VehiculosViajesPage = () => {
                 ${filasTabla || '<tr><td colspan="4" style="text-align:center; padding:10px;">No hubo movimientos</td></tr>'}
               </tbody>
             </table>
-
             <div class="firmas">
               <div class="firma-linea">Firma del Trabajador</div>
               <div class="firma-linea">Firma del Gerente</div>
             </div>
-
-            <div class="footer">
-              Documento generado automáticamente por el Sistema - CREDI HOGAR PLUS
-            </div>
+            <div class="footer">Documento generado automáticamente por el Sistema - CREDI HOGAR PLUS</div>
           </body>
         </html>
       `;
 
-      ventanaImpresion.document.write(htmlPDF);
+      (ventanaImpresion.document as any).write(htmlPDF);
       ventanaImpresion.document.close();
       ventanaImpresion.focus();
       setTimeout(() => {
@@ -468,6 +454,12 @@ export const VehiculosViajesPage = () => {
     setLoadingLiquidacion(false);
   };
 
+  // --- CORRECCIÓN: Agregamos el guión bajo (_d) para que TypeScript no arroje error 6133 ---
+  const totalFisicoRestante = datosLiquidacion?.detalles?.reduce((acc: number, _d: any, idx: number) => {
+    const input = liquidacionInputs[idx];
+    return acc + (input?.fisico || 0);
+  }, 0) || 0;
+
   const confirmarCierre = async (accion: 'DEVOLVER' | 'MANTENER') => {
     let faltanMotivos = false;
     const ajustes = datosLiquidacion?.detalles.map((d: any, idx: number) => {
@@ -494,7 +486,15 @@ export const VehiculosViajesPage = () => {
         accionStock: accion,
         ajustes: ajustes 
       });
-      alert(`✅ Viaje cerrado exitosamente.\nStock: ${accion === 'DEVOLVER' ? 'Devuelto al Almacén Principal' : 'Mantenido en el Vehículo'}`);
+
+      let mensajeExito = `✅ Viaje cerrado exitosamente.`;
+      if (totalFisicoRestante > 0) {
+        mensajeExito += `\nStock: ${accion === 'DEVOLVER' ? 'Devuelto al Almacén Principal' : 'Mantenido en el Vehículo'}`;
+      } else {
+        mensajeExito += `\nTodo el inventario fue vendido o justificado. El camión quedó vacío.`;
+      }
+      alert(mensajeExito);
+      
       setOpenLiquidacion(false);
       cargarDatos();
     } catch (error) {
@@ -590,7 +590,8 @@ export const VehiculosViajesPage = () => {
         </body>
       </html>
     `;
-    ventanaImpresion.document.write(htmlPDF);
+
+    (ventanaImpresion.document as any).write(htmlPDF);
     ventanaImpresion.document.close();
     ventanaImpresion.focus();
     setTimeout(() => { ventanaImpresion.print(); }, 500);
@@ -914,7 +915,6 @@ export const VehiculosViajesPage = () => {
                             <TableCell align="center" sx={{ color: '#d32f2f', fontWeight: 'bold' }}>{item.cantidad_vendida}</TableCell>
                             <TableCell align="center" sx={{ fontWeight: 'bold', color: '#64748b' }}>{item.stock_restante}</TableCell>
                             
-                            {/* CORRECCIÓN ABSOLUTA: Quitamos inputProps y usamos sx o centramos desde el contenedor sin props no soportadas */}
                             <TableCell align="center">
                               <TextField 
                                 type="number" 
@@ -963,20 +963,31 @@ export const VehiculosViajesPage = () => {
 
         <DialogActions sx={{ p: 3, bgcolor: '#ffffff', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0' }}>
           <Button onClick={() => setOpenLiquidacion(false)} color="inherit" sx={{ fontWeight: 'bold', textTransform: 'none' }}>Cancelar</Button>
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          
+          {totalFisicoRestante === 0 ? (
             <Button 
-              variant="outlined" color="primary" startIcon={<LocalShipping />}
-              onClick={() => confirmarCierre('MANTENER')} sx={{ fontWeight: 'bold', textTransform: 'none' }}
-            >
-              Cerrar y Mantener Stock
-            </Button>
-            <Button 
-              variant="contained" color="error" startIcon={<StorefrontIcon />}
+              variant="contained" color="success" startIcon={<StorefrontIcon />}
               onClick={() => confirmarCierre('DEVOLVER')} sx={{ fontWeight: 'bold', textTransform: 'none' }}
             >
-              Cerrar y Devolver al Almacén
+              Cerrar Viaje (Todo Vendido)
             </Button>
-          </Box>
+          ) : (
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Button 
+                variant="outlined" color="primary" startIcon={<LocalShipping />}
+                onClick={() => confirmarCierre('MANTENER')} sx={{ fontWeight: 'bold', textTransform: 'none' }}
+              >
+                Cerrar y Mantener Stock
+              </Button>
+              <Button 
+                variant="contained" color="error" startIcon={<StorefrontIcon />}
+                onClick={() => confirmarCierre('DEVOLVER')} sx={{ fontWeight: 'bold', textTransform: 'none' }}
+              >
+                Cerrar y Devolver al Almacén
+              </Button>
+            </Box>
+          )}
+
         </DialogActions>
       </Dialog>
     </Box>
