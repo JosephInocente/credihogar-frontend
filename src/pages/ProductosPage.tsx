@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import { 
   Add as AddIcon, Close as CloseIcon, CloudUpload as UploadIcon, Layers as LayersIcon, 
-  LocalOffer as PriceIcon, Edit as EditIcon, Delete as DeleteIcon 
+  LocalOffer as PriceIcon, Edit as EditIcon, Delete as DeleteIcon, Warning as WarningIcon 
 } from '@mui/icons-material';
 import { api } from '../api/axiosConfig';
 
@@ -27,6 +27,13 @@ export const ProductosPage = () => {
   const [formPresentacion, setFormPresentacion] = useState({
     nombre: '', unidad_base: 'Unidad', factor_conversion: 1, precio_compra_referencial: '', precio_venta: '', codigo_barras: ''
   });
+
+  // NUEVO: Estados para Modales de Confirmación de Eliminación
+  const [openConfirmDeleteProd, setOpenConfirmDeleteProd] = useState(false);
+  const [prodToDelete, setProdToDelete] = useState<number | null>(null);
+  
+  const [openConfirmDeletePres, setOpenConfirmDeletePres] = useState(false);
+  const [presToDelete, setPresToDelete] = useState<number | null>(null);
 
   const cargarProductos = async () => {
     setLoading(true);
@@ -70,7 +77,7 @@ export const ProductosPage = () => {
     }
   };
 
-  // --- LÓGICA DE GUARDAR / EDITAR / ELIMINAR PRODUCTO ---
+  // --- LÓGICA DE GUARDAR / EDITAR PRODUCTO ---
   const abrirModalNuevoProducto = () => {
     setEditandoProductoId(null);
     setFormProducto({ sku: '', nombre: '', marca: '', categoria: '', imagenUrl: '' });
@@ -89,10 +96,8 @@ export const ProductosPage = () => {
     try {
       if (editandoProductoId) {
         await api.put(`/productos/${editandoProductoId}`, formProducto);
-        alert("✅ Producto actualizado");
       } else {
         await api.post('/productos', formProducto);
-        alert("✅ Producto creado");
       }
       setOpenProducto(false);
       cargarProductos();
@@ -101,15 +106,20 @@ export const ProductosPage = () => {
     }
   };
 
-  const eliminarProducto = async (id: number) => {
-    if(window.confirm("¿Estás seguro de eliminar este producto del catálogo?")) {
-      try {
-        await api.delete(`/productos/${id}`);
-        alert("✅ Producto eliminado");
-        cargarProductos();
-      } catch (error) {
-        alert("❌ Error al eliminar producto");
-      }
+  // --- NUEVA LÓGICA: ELIMINAR PRODUCTO CON MODAL ---
+  const triggerDeleteProducto = (id: number) => {
+    setProdToDelete(id);
+    setOpenConfirmDeleteProd(true);
+  };
+
+  const executeDeleteProducto = async () => {
+    if (!prodToDelete) return;
+    try {
+      await api.delete(`/productos/${prodToDelete}`);
+      setOpenConfirmDeleteProd(false);
+      cargarProductos();
+    } catch (error) {
+      alert("❌ Error al eliminar producto");
     }
   };
 
@@ -135,14 +145,21 @@ export const ProductosPage = () => {
     }
   };
 
-  const eliminarPresentacion = async (id: number) => {
-    if(window.confirm("¿Seguro que deseas quitar esta presentación/precio?")) {
-      try {
-        await api.delete(`/productos/presentaciones/${id}`);
-        cargarProductos();
-      } catch (error: any) {
-        alert("❌ " + (error.response?.data?.error || "Error al eliminar. Es posible que ya tenga inventario asignado."));
-      }
+  // --- NUEVA LÓGICA: ELIMINAR PRESENTACIÓN CON MODAL ---
+  const triggerDeletePresentacion = (id: number) => {
+    setPresToDelete(id);
+    setOpenConfirmDeletePres(true);
+  };
+
+  const executeDeletePresentacion = async () => {
+    if (!presToDelete) return;
+    try {
+      await api.delete(`/productos/presentaciones/${presToDelete}`);
+      setOpenConfirmDeletePres(false);
+      cargarProductos();
+    } catch (error: any) {
+      alert("❌ " + (error.response?.data?.error || "Error al eliminar. Es posible que ya tenga inventario asignado."));
+      setOpenConfirmDeletePres(false);
     }
   };
 
@@ -168,10 +185,10 @@ export const ProductosPage = () => {
               {/* Botones de acción del producto */}
               <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 0.5, bgcolor: 'rgba(255,255,255,0.8)', borderRadius: 2 }}>
                 <Tooltip title="Editar Producto"><IconButton size="small" color="primary" onClick={() => abrirModalEditarProducto(prod)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                <Tooltip title="Eliminar Producto"><IconButton size="small" color="error" onClick={() => eliminarProducto(prod.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                {/* AQUI SE LLAMA AL NUEVO MODAL DE PRODUCTO */}
+                <Tooltip title="Eliminar Producto"><IconButton size="small" color="error" onClick={() => triggerDeleteProducto(prod.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
               </Box>
 
-              {/* CORRECCIÓN DE LA IMAGEN: Usando Flexbox para centrar perfectamente sin estirar */}
               <Box sx={{ height: 220, bgcolor: '#ffffff', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
                 <img 
                   src={prod.imagen_url || 'https://via.placeholder.com/300x200?text=Sin+Imagen'} 
@@ -204,8 +221,8 @@ export const ProductosPage = () => {
                       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{pres.nombre}</Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#16a34a', fontWeight: '900' }}>S/ {pres.precio_venta}</Typography>
-                        {/* Botón para eliminar la presentación */}
-                        <IconButton size="small" onClick={() => eliminarPresentacion(pres.id)} sx={{ p: 0.5, color: '#ef4444' }}><CloseIcon fontSize="small" /></IconButton>
+                        {/* AQUI SE LLAMA AL NUEVO MODAL DE PRESENTACION */}
+                        <IconButton size="small" onClick={() => triggerDeletePresentacion(pres.id)} sx={{ p: 0.5, color: '#ef4444' }}><CloseIcon fontSize="small" /></IconButton>
                       </Box>
                     </Box>
                   ))
@@ -229,8 +246,6 @@ export const ProductosPage = () => {
         </DialogTitle>
         <DialogContent sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
-            
-            {/* ZONA DE CARGA DE IMAGEN MEJORADA */}
             <Box sx={{ border: '2px dashed #cbd5e1', borderRadius: 2, p: 3, textAlign: 'center', bgcolor: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               {formProducto.imagenUrl ? (
                 <>
@@ -290,6 +305,39 @@ export const ProductosPage = () => {
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 0 }}><Button onClick={() => setOpenPresentacion(false)}>Cancelar</Button><Button variant="contained" onClick={guardarPresentacion} sx={{ bgcolor: '#16a34a' }}>Guardar Precio</Button></DialogActions>
       </Dialog>
+
+      {/* NUEVO: MODAL CONFIRMAR ELIMINAR PRODUCTO MAESTRO */}
+      <Dialog open={openConfirmDeleteProd} onClose={() => setOpenConfirmDeleteProd(false)} sx={{ '& .MuiDialog-paper': { borderRadius: 3, p: 1 } }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#dc2626', fontWeight: 'bold' }}>
+          <WarningIcon /> Confirmar Eliminación
+        </DialogTitle>
+        <DialogContent>
+          <Typography>¿Estás seguro que deseas eliminar este <strong>producto</strong> de tu catálogo?</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Esta acción eliminará también sus presentaciones y no se puede deshacer.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenConfirmDeleteProd(false)} color="inherit" sx={{ fontWeight: 'bold' }}>Cancelar</Button>
+          <Button onClick={executeDeleteProducto} variant="contained" color="error" sx={{ textTransform: 'none', fontWeight: 'bold' }}>Sí, Eliminar Producto</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* NUEVO: MODAL CONFIRMAR ELIMINAR PRESENTACIÓN */}
+      <Dialog open={openConfirmDeletePres} onClose={() => setOpenConfirmDeletePres(false)} sx={{ '& .MuiDialog-paper': { borderRadius: 3, p: 1 } }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#dc2626', fontWeight: 'bold' }}>
+          <WarningIcon /> Quitar Presentación
+        </DialogTitle>
+        <DialogContent>
+          <Typography>¿Estás seguro que deseas quitar esta <strong>presentación y su precio</strong>?</Typography>
+          <Typography variant="body2" color="error" sx={{ mt: 1, fontWeight: 'bold' }}>
+            Si esta presentación ya tiene stock en el inventario o en algún camión, el sistema bloqueará la eliminación para evitar descuadres.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenConfirmDeletePres(false)} color="inherit" sx={{ fontWeight: 'bold' }}>Cancelar</Button>
+          <Button onClick={executeDeletePresentacion} variant="contained" color="error" sx={{ textTransform: 'none', fontWeight: 'bold' }}>Sí, Quitar Presentación</Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   );
 };
