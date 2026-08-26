@@ -140,12 +140,31 @@ export const VehiculosViajesPage = () => {
     } catch (error) { alert("❌ Error al programar el viaje"); }
   };
 
-  const abrirModalCarga = (viaje: any) => {
+  const abrirModalCarga = async (viaje: any) => {
     setViajeACargar(viaje); 
-    setItemsCarga([]); 
+    setItemsCarga([]); // Limpiamos primero
     setPasoModal(1); 
     setFormItem({ presentacionId: '', cantidad: '', precioVenta: '', nombreInfo: '', maxStock: 0 }); 
     setOpenCarga(true);
+
+    // NUEVO: Buscar si el vehículo ya tiene stock mantenido de viajes anteriores
+    try {
+      const idVehiculo = viaje.vehiculoId || viaje.vehiculo_id || viaje.vehiculo?.id;
+      const res = await api.get(`/logistica/vehiculos/${idVehiculo}/inventario`);
+      
+      if (res.data && res.data.length > 0) {
+        const inventarioPrevio = res.data.map((i: any) => ({
+          presentacionId: (i.presentacion_id || i.presentacion?.id).toString(),
+          nombreInfo: `${i.producto_nombre || i.presentacion?.producto?.nombre} - ${i.presentacion_nombre || i.presentacion?.nombre}`,
+          cantidad: i.cantidad,
+          precioVenta: i.precio_venta || i.presentacion?.precio || 0,
+          esPrevio: true // Banderita para identificar que ya estaba en el camión
+        }));
+        setItemsCarga(inventarioPrevio);
+      }
+    } catch (error) {
+      console.error("El vehículo está vacío o hubo un error al consultar su inventario.");
+    }
   };
 
   const handleProductoSelect = (e: any) => {
@@ -171,15 +190,20 @@ export const VehiculosViajesPage = () => {
 
     if (existeIndex >= 0) {
       const nuevaLista = [...itemsCarga];
-      const nuevaCant = nuevaLista[existeIndex].cantidad + cant;
-      if (nuevaCant > formItem.maxStock) {
-        return alert(`No puedes exceder el stock disponible. Máximo: ${formItem.maxStock}. (Ya tienes ${nuevaLista[existeIndex].cantidad} en la lista)`);
+      
+      // Solo validamos el maxStock contra la cantidad "nueva" que estamos intentando subir
+      const cantidadNuevaExistente = nuevaLista[existeIndex].esPrevio ? 0 : nuevaLista[existeIndex].cantidad;
+      
+      if (cantidadNuevaExistente + cant > formItem.maxStock) {
+        return alert(`No puedes exceder el stock del almacén. Máximo a subir: ${formItem.maxStock}.`);
       }
-      nuevaLista[existeIndex].cantidad = nuevaCant;
+      
+      nuevaLista[existeIndex].cantidad += cant;
+      // Si era previo, al sumarle más, ya tiene componentes nuevos, pero sigue manteniendo su base.
       setItemsCarga(nuevaLista);
     } else {
-      if (cant > formItem.maxStock) return alert(`Stock disponible: ${formItem.maxStock}`);
-      setItemsCarga([...itemsCarga, { ...formItem, cantidad: cant, precioVenta: parseFloat(formItem.precioVenta) }]);
+      if (cant > formItem.maxStock) return alert(`Stock disponible en almacén: ${formItem.maxStock}`);
+      setItemsCarga([...itemsCarga, { ...formItem, cantidad: cant, precioVenta: parseFloat(formItem.precioVenta), esPrevio: false }]);
     }
     setFormItem({ presentacionId: '', cantidad: '', precioVenta: '', nombreInfo: '', maxStock: 0 });
   };
@@ -256,13 +280,13 @@ export const VehiculosViajesPage = () => {
               </tr>
             </table>
           </div>
-          <h3>Detalle de Mercadería Cargada</h3>
+          <h3>Detalle de Mercadería Cargada (Incluye Stock Mantenido)</h3>
           <table>
             <thead>
               <tr>
                 <th>Producto</th>
                 <th>Presentación</th>
-                <th style="text-align: center;">Cantidad</th>
+                <th style="text-align: center;">Cantidad Total</th>
                 <th style="text-align: right;">Precio Autorizado</th>
                 <th style="text-align: right;">Venta Potencial</th>
               </tr>
@@ -286,9 +310,19 @@ export const VehiculosViajesPage = () => {
 
   const confirmarDespacho = async () => {
     try {
-      const payload = { items: itemsCarga.map(i => ({ presentacionId: parseInt(i.presentacionId), cantidad: i.cantidad })) };
+      // NUEVO: Solo enviamos al backend los productos que SON NUEVOS (no los que ya estaban en el camión)
+      // Si a un producto viejo se le sumó más cantidad, el backend lo sumará gracias al ON CONFLICT
+      const itemsNuevos = itemsCarga.filter(i => !i.esPrevio).map(i => ({ 
+        presentacionId: parseInt(i.presentacionId), 
+        cantidad: i.cantidad 
+      }));
+
+      const payload = { items: itemsNuevos };
       await api.post(`/logistica/viajes/${viajeACargar.id}/carga`, payload);
+      
+      // La guía imprime TODOS los items (viejos y nuevos)
       imprimirGuiaCargaPDF(viajeACargar, itemsCarga);
+      
       alert("🚛 ¡Camión cargado y despachado exitosamente!"); 
       setOpenCarga(false); 
       cargarDatos();
@@ -781,9 +815,13 @@ export const VehiculosViajesPage = () => {
                     <TableCell align="right" sx={{ color: '#16a34a', fontWeight: 'bold' }}>S/ {(item.cantidad * item.precioVenta).toFixed(2)}</TableCell>
                     {pasoModal === 1 && (
                       <TableCell align="center">
-                        <IconButton size="small" color="error" onClick={() => eliminarItemCarga(index)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
+                        {!item.esPrevio ? (
+                          <IconButton size="small" color="error" onClick={() => eliminarItemCarga(index)}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        ) : (
+                          <Chip label="En Camión" size="small" color="secondary" variant="outlined" />
+                        )}
                       </TableCell>
                     )}
                   </TableRow>
