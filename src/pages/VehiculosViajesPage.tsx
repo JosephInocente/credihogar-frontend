@@ -417,7 +417,9 @@ export const VehiculosViajesPage = () => {
               <div class="firma-linea">Firma del Trabajador</div>
               <div class="firma-linea">Firma del Gerente</div>
             </div>
-            <div class="footer">Documento generado automáticamente por el Sistema - CREDI HOGAR PLUS</div>
+            <div class="footer">
+              Documento generado automáticamente por el Sistema - CREDI HOGAR PLUS
+            </div>
           </body>
         </html>
       `;
@@ -454,7 +456,6 @@ export const VehiculosViajesPage = () => {
     setLoadingLiquidacion(false);
   };
 
-  // --- CORRECCIÓN: Agregamos el guión bajo (_d) para que TypeScript no arroje error 6133 ---
   const totalFisicoRestante = datosLiquidacion?.detalles?.reduce((acc: number, _d: any, idx: number) => {
     const input = liquidacionInputs[idx];
     return acc + (input?.fisico || 0);
@@ -730,7 +731,18 @@ export const VehiculosViajesPage = () => {
         </Box>
         <DialogContent sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            <TextField label="Placa" fullWidth value={formVehiculo.placa} onChange={(e) => setFormVehiculo({...formVehiculo, placa: e.target.value})} />
+            {/* CORRECCIÓN APLICADA: slotProps para no chocar con las interfaces estrictas de MUI */}
+            <TextField 
+              label="Placa" 
+              fullWidth 
+              value={formVehiculo.placa} 
+              onChange={(e) => {
+                const val = e.target.value.toUpperCase();
+                if(val.length <= 10) setFormVehiculo({...formVehiculo, placa: val});
+              }}
+              slotProps={{ htmlInput: { maxLength: 10 } }}
+              helperText="Máximo 10 caracteres"
+            />
             <Box sx={{ display: 'flex', gap: 2 }}><TextField label="Marca" fullWidth value={formVehiculo.marca} onChange={(e) => setFormVehiculo({...formVehiculo, marca: e.target.value})} /><TextField label="Modelo" fullWidth value={formVehiculo.modelo} onChange={(e) => setFormVehiculo({...formVehiculo, modelo: e.target.value})} /></Box>
             <Box sx={{ display: 'flex', gap: 2 }}><TextField label="Capacidad" type="number" fullWidth value={formVehiculo.capacidad} onChange={(e) => setFormVehiculo({...formVehiculo, capacidad: e.target.value})} />
               {isEditing && <TextField select label="Estado" fullWidth value={formVehiculo.estado} onChange={(e) => setFormVehiculo({...formVehiculo, estado: e.target.value})}>
