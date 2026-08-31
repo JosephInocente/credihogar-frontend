@@ -83,16 +83,16 @@ export const ReportesPage = () => {
               <TableRow sx={{ bgcolor: '#f8fafc' }}>
                 {datos.length > 0 && Object.keys(datos[0]).map((key) => (
                   <TableCell key={key} sx={{ fontWeight: 'bold', color: '#475569', textTransform: 'uppercase' }}>
-                    {key.replace('_', ' ')}
+                    {key.replace(/_/g, ' ')}
                   </TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={5} align="center" sx={{ py: 5 }}><CircularProgress /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} align="center" sx={{ py: 5 }}><CircularProgress /></TableCell></TableRow>
               ) : datos.length === 0 ? (
-                <TableRow><TableCell colSpan={5} align="center" sx={{ py: 5 }}>No hay registros disponibles para este reporte.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} align="center" sx={{ py: 5 }}>No hay registros disponibles para este reporte.</TableCell></TableRow>
               ) : (
                 datos.map((fila, idx) => (
                   <TableRow key={idx} sx={{ '&:hover': { bgcolor: '#f1f5f9' } }}>

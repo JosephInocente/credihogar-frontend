@@ -3,9 +3,9 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, CircularProgress, 
   IconButton, Dialog, DialogContent, DialogActions, 
-  Button, DialogTitle, Tooltip
+  Button, DialogTitle, Tooltip, Chip
 } from '@mui/material';
-import { ReceiptLong as ReceiptIcon, Print as PrintIcon } from '@mui/icons-material';
+import { ReceiptLong as ReceiptIcon, Print as PrintIcon, Storefront as StorefrontIcon, LocalShipping as LocalShippingIcon } from '@mui/icons-material';
 import { api } from '../api/axiosConfig';
 
 export const ClientesPage = () => {
@@ -90,7 +90,6 @@ export const ClientesPage = () => {
         </Box>
       </Box>
 
-      {/* TABLA DE HISTORIAL - CON EL ESTILO ORIGINAL */}
       <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 3, border: '1px solid #e2e8f0' }}>
         <Table sx={{ minWidth: 650 }}>
           <TableHead sx={{ bgcolor: '#f8fafc' }}>
@@ -98,7 +97,7 @@ export const ClientesPage = () => {
               <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>Doc.</TableCell>
               <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>Número</TableCell>
               <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>Razón Social / Nombre</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>Dirección (Ruta)</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>Origen de Venta</TableCell>
               <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>Fecha y Hora</TableCell>
               <TableCell align="right" sx={{ fontWeight: 'bold', color: '#64748b' }}>Total</TableCell>
               <TableCell align="center" sx={{ fontWeight: 'bold', color: '#64748b' }}>Ticket</TableCell>
@@ -115,7 +114,16 @@ export const ClientesPage = () => {
                   <TableCell>{row.tipo_documento}</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', color: '#0a348a' }}>{row.numero_documento}</TableCell>
                   <TableCell>{row.cliente_nombre}</TableCell>
-                  <TableCell>{row.direccion_viaje}</TableCell>
+                  
+                  {/* LÓGICA VISUAL PARA DIFERENCIAR TIENDA VS RUTA */}
+                  <TableCell>
+                    {row.direccion_viaje ? (
+                      <Chip icon={<LocalShippingIcon fontSize="small" />} label={row.direccion_viaje} size="small" sx={{ bgcolor: '#e0e7ff', color: '#4338ca', fontWeight: 'bold' }} />
+                    ) : (
+                      <Chip icon={<StorefrontIcon fontSize="small" />} label="Tienda Principal" size="small" sx={{ bgcolor: '#f1f5f9', color: '#475569', fontWeight: 'bold' }} />
+                    )}
+                  </TableCell>
+                  
                   <TableCell>{row.fecha_hora}</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 'bold', color: '#16a34a' }}>
                     S/ {row.total.toFixed(2)}
@@ -151,7 +159,7 @@ export const ClientesPage = () => {
               <div><span style={{ fontWeight: 'bold' }}>Fecha:</span> {ticketData?.fecha_hora}</div>
               <div><span style={{ fontWeight: 'bold' }}>Cliente:</span> {ticketData?.cliente_nombre}</div>
               <div><span style={{ fontWeight: 'bold' }}>Doc:</span> {ticketData?.numero_documento}</div>
-              <div><span style={{ fontWeight: 'bold' }}>Ruta:</span> {ticketData?.direccion_viaje}</div>
+              <div><span style={{ fontWeight: 'bold' }}>Lugar:</span> {ticketData?.direccion_viaje || 'Tienda Principal'}</div>
               <div style={{ borderBottom: '1px dashed #000', margin: '8px 0' }}></div>
               <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
                 <thead>
