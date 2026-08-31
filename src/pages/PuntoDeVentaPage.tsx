@@ -94,7 +94,11 @@ export const PuntoDeVentaPage = () => {
     }
   };
 
-  const total = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
+  const total = carrito.reduce((sum, item) => {
+    const precioSeguro = Number(item.precio) || 0;
+    const cantidadSegura = Number(item.cantidad) || 0;
+    return sum + (precioSeguro * cantidadSegura);
+  }, 0);
 
   const intentarProcesarVenta = () => {
     if (numeroDocumento.trim() !== '' && razonSocial.trim() === '') {
@@ -155,7 +159,7 @@ export const PuntoDeVentaPage = () => {
       ventanaImpresion.document.write(`
         <html>
           <head>
-            <title>Ticket Venta #${ticketData?.ventaId}</title>
+            <title>Ticket Venta #${ticketData?.ventaId || '000'}</title>
             <style>
               body { 
                 font-family: 'Courier New', Courier, monospace; 
@@ -189,9 +193,9 @@ export const PuntoDeVentaPage = () => {
     }
   };
 
+  // CORRECCIÓN PRINCIPAL: Solo ocultamos el ticket, NO vaciamos los datos
   const cerrarTicket = () => {
     setOpenTicket(false);
-    setTicketData(null);
   };
 
   return (
@@ -263,10 +267,10 @@ export const PuntoDeVentaPage = () => {
                   <Box key={item.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, p: 1, borderBottom: '1px dashed #e2e8f0' }}>
                     <Box>
                       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{item.nombre}</Typography>
-                      <Typography variant="caption" color="text.secondary">{item.cantidad} x S/ {item.precio.toFixed(2)}</Typography>
+                      <Typography variant="caption" color="text.secondary">{item.cantidad} x S/ {Number(item.precio).toFixed(2)}</Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 'bold', mr: 2 }}>S/ {(item.cantidad * item.precio).toFixed(2)}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', mr: 2 }}>S/ {(item.cantidad * Number(item.precio)).toFixed(2)}</Typography>
                       <IconButton size="small" color="error" onClick={() => eliminarDelCarrito(item.id)}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -357,7 +361,7 @@ export const PuntoDeVentaPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* DIÁLOGO / MODAL DEL TICKET DE VENTA */}
+      {/* DIÁLOGO / MODAL DEL TICKET DE VENTA (BLINDADO CONTRA ERRORES) */}
       <Dialog open={openTicket} onClose={cerrarTicket} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ textAlign: 'center', bgcolor: '#f8fafc', color: '#0f172a', fontWeight: 'bold' }}>
           <CheckCircleOutlined color="success" sx={{ fontSize: 40, mb: 1 }} />
@@ -372,10 +376,11 @@ export const PuntoDeVentaPage = () => {
             <div className="center">RUC: 20123456789</div>
             <div className="divider"></div>
             
-            <div><span className="bold">Ticket:</span> V-{String(ticketData?.ventaId).padStart(6, '0')}</div>
-            <div><span className="bold">Fecha:</span> {ticketData?.fecha}</div>
-            <div><span className="bold">Cliente:</span> {ticketData?.clienteNombre}</div>
-            <div><span className="bold">Doc:</span> {ticketData?.clienteDocumento}</div>
+            {/* El operador ?. y || previenen que el ticket truene si falta algún dato */}
+            <div><span className="bold">Ticket:</span> V-{ticketData?.ventaId ? String(ticketData.ventaId).padStart(6, '0') : '------'}</div>
+            <div><span className="bold">Fecha:</span> {ticketData?.fecha || '--'}</div>
+            <div><span className="bold">Cliente:</span> {ticketData?.clienteNombre || '--'}</div>
+            <div><span className="bold">Doc:</span> {ticketData?.clienteDocumento || '--'}</div>
             <div className="divider"></div>
             
             <table>
@@ -387,11 +392,11 @@ export const PuntoDeVentaPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {ticketData?.detalles.map((item: any) => (
+                {ticketData?.detalles?.map((item: any) => (
                   <tr key={item.id}>
                     <td>{item.cantidad}</td>
                     <td>{item.nombre}</td>
-                    <td className="col-precio">{(item.cantidad * item.precio).toFixed(2)}</td>
+                    <td className="col-precio">{(item.cantidad * Number(item.precio || 0)).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -399,7 +404,7 @@ export const PuntoDeVentaPage = () => {
             
             <div className="divider"></div>
             <div className="right bold" style={{ fontSize: '16px', marginTop: '10px' }}>
-              TOTAL: S/ {ticketData?.total.toFixed(2)}
+              TOTAL: S/ {Number(ticketData?.total || 0).toFixed(2)}
             </div>
             <div className="divider"></div>
             <div className="center" style={{ marginTop: '15px' }}>
