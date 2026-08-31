@@ -27,7 +27,7 @@ export const PuntoDeVentaPage = () => {
   const [buscandoExterna, setBuscandoExterna] = useState(false);
   const [errorMensaje, setErrorMensaje] = useState('');
 
-  // ESTADOS PARA EL TICKET
+  const [openConfirmarVenta, setOpenConfirmarVenta] = useState(false);
   const [openTicket, setOpenTicket] = useState(false);
   const [ticketData, setTicketData] = useState<any>(null);
 
@@ -96,8 +96,18 @@ export const PuntoDeVentaPage = () => {
 
   const total = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
 
+  const intentarProcesarVenta = () => {
+    if (numeroDocumento.trim() !== '' && razonSocial.trim() === '') {
+      setErrorMensaje('Debe buscar el documento ingresado (lupa) o borrarlo para emitir una Boleta Simple.');
+      return;
+    }
+    setErrorMensaje('');
+    setOpenConfirmarVenta(true);
+  };
+
   const procesarVenta = async () => {
     if (carrito.length === 0) return;
+    setOpenConfirmarVenta(false);
 
     const payload = {
       clienteDocumento: numeroDocumento,
@@ -307,7 +317,7 @@ export const PuntoDeVentaPage = () => {
             </Box>
 
             <Button 
-              variant="contained" size="large" startIcon={<PointOfSale />} disabled={carrito.length === 0} onClick={procesarVenta} 
+              variant="contained" size="large" startIcon={<PointOfSale />} disabled={carrito.length === 0} onClick={intentarProcesarVenta} 
               sx={{ bgcolor: '#0a348a', py: 1.5, fontWeight: 'bold', fontSize: '1.1rem', textTransform: 'none', flexShrink: 0 }}
             >
               Procesar Venta
@@ -315,6 +325,37 @@ export const PuntoDeVentaPage = () => {
           </Paper>
         </Box>
       </Box>
+
+      {/* MODAL DE CONFIRMACIÓN DE DATOS DEL CLIENTE */}
+      <Dialog open={openConfirmarVenta} onClose={() => setOpenConfirmarVenta(false)} maxWidth="xs" fullWidth sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
+        <DialogTitle sx={{ bgcolor: '#0a348a', color: 'white', fontWeight: 'bold', textAlign: 'center' }}>
+          Confirmar Datos de Venta
+        </DialogTitle>
+        <DialogContent sx={{ p: 3, mt: 2 }}>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Por favor, verifica a nombre de quién saldrá el comprobante:
+          </Typography>
+          <Paper elevation={0} sx={{ p: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+            <Typography variant="body2" color="text.secondary">Documento:</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 'bold', mb: 1.5, color: '#0f172a' }}>
+              {numeroDocumento || 'Sin Documento'}
+            </Typography>
+
+            <Typography variant="body2" color="text.secondary">Cliente / Razón Social:</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 'bold', color: '#0f172a' }}>
+              {razonSocial || 'Público en General'}
+            </Typography>
+          </Paper>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0, justifyContent: 'space-between' }}>
+          <Button onClick={() => setOpenConfirmarVenta(false)} color="inherit" sx={{ fontWeight: 'bold', textTransform: 'none' }}>
+            Atrás (Corregir)
+          </Button>
+          <Button variant="contained" onClick={procesarVenta} startIcon={<PointOfSale />} sx={{ bgcolor: '#16a34a', fontWeight: 'bold', textTransform: 'none' }}>
+            Realizar Venta
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* DIÁLOGO / MODAL DEL TICKET DE VENTA */}
       <Dialog open={openTicket} onClose={cerrarTicket} maxWidth="xs" fullWidth>
