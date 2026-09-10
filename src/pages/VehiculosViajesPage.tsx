@@ -6,7 +6,8 @@ import {
 import { 
   LocalShipping, Map as MapIcon, Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, 
   Close as CloseIcon, DirectionsCar, Route as RouteIcon, Person as PersonIcon, Inventory as InventoryIcon,
-  AssignmentTurnedIn as LiquidarIcon, Print as PrintIcon, Storefront as StorefrontIcon, PictureAsPdf as PdfIcon
+  AssignmentTurnedIn as LiquidarIcon, Print as PrintIcon, Storefront as StorefrontIcon, PictureAsPdf as PdfIcon,
+  Badge as BadgeIcon // <-- AQUÍ ESTÁ EL ÍCONO IMPORTADO
 } from '@mui/icons-material';
 import { api } from '../api/axiosConfig';
 
@@ -29,7 +30,11 @@ export const VehiculosViajesPage = () => {
   const [tabIndex, setTabIndex] = useState(0);
   const [vehiculos, setVehiculos] = useState<any[]>([]);
   const [viajes, setViajes] = useState<any[]>([]);
-  const [trabajadores, setTrabajadores] = useState<any[]>([]); 
+  
+  // SEPARAMOS A LOS TRABAJADORES POR ROL
+  const [choferes, setChoferes] = useState<any[]>([]); 
+  const [gestores, setGestores] = useState<any[]>([]); 
+  
   const [inventarioAlmacen, setInventarioAlmacen] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
 
@@ -42,8 +47,9 @@ export const VehiculosViajesPage = () => {
   });
 
   const [openViaje, setOpenViaje] = useState(false);
+  // AGREGAMOS GESTOR AL FORMULARIO DE VIAJE
   const [formViaje, setFormViaje] = useState({
-    destino: '', vehiculoId: '', trabajadorId: '', fecha: new Date().toISOString().split('T')[0] 
+    destino: '', vehiculoId: '', trabajadorId: '', gestorId: '', fecha: new Date().toISOString().split('T')[0] 
   });
 
   const [openCarga, setOpenCarga] = useState(false);
@@ -79,7 +85,9 @@ export const VehiculosViajesPage = () => {
 
     try {
       const resUsu = await api.get('/usuarios');
-      setTrabajadores(resUsu.data.filter((u: any) => u.rol === 'TRABAJADOR' && u.estado === 'ACTIVO'));
+      // Filtramos las listas para los dropdowns
+      setChoferes(resUsu.data.filter((u: any) => u.rol === 'TRABAJADOR' && u.estado === 'ACTIVO'));
+      setGestores(resUsu.data.filter((u: any) => u.rol === 'GESTOR' && u.estado === 'ACTIVO'));
     } catch (e) { console.error("Error al cargar usuarios", e); }
 
     try {
@@ -94,9 +102,10 @@ export const VehiculosViajesPage = () => {
     cargarDatos();
   }, []);
 
-  const obtenerNombreChofer = (id: number) => {
-    const chofer = trabajadores.find(t => t.id === id);
-    return chofer ? `${chofer.nombre} ${chofer.apellidos}` : `Trabajador #${id}`;
+  // Función genérica para buscar nombres en las listas
+  const obtenerNombrePersonal = (id: number, lista: any[]) => {
+    const persona = lista.find(t => t.id === id);
+    return persona ? `${persona.nombre} ${persona.apellidos}` : `No Asignado`;
   };
 
   const abrirModalNuevo = () => {
@@ -129,13 +138,18 @@ export const VehiculosViajesPage = () => {
   };
 
   const guardarViaje = async () => {
-    if (!formViaje.destino || !formViaje.vehiculoId || !formViaje.trabajadorId || !formViaje.fecha) return alert("Faltan datos obligatorios");
+    if (!formViaje.destino || !formViaje.vehiculoId || !formViaje.trabajadorId || !formViaje.gestorId || !formViaje.fecha) {
+      return alert("Todos los datos, incluyendo Chofer y Gestor, son obligatorios.");
+    }
     try {
       await api.post('/logistica/viajes', { 
-        ...formViaje, vehiculoId: parseInt(formViaje.vehiculoId), trabajadorId: parseInt(formViaje.trabajadorId) 
+        ...formViaje, 
+        vehiculoId: parseInt(formViaje.vehiculoId), 
+        trabajadorId: parseInt(formViaje.trabajadorId),
+        gestorId: parseInt(formViaje.gestorId)
       });
       alert("✅ Viaje programado"); setOpenViaje(false);
-      setFormViaje({ destino: '', vehiculoId: '', trabajadorId: '', fecha: new Date().toISOString().split('T')[0] });
+      setFormViaje({ destino: '', vehiculoId: '', trabajadorId: '', gestorId: '', fecha: new Date().toISOString().split('T')[0] });
       cargarDatos();
     } catch (error) { alert("❌ Error al programar el viaje"); }
   };
@@ -270,8 +284,8 @@ export const VehiculosViajesPage = () => {
                 <td><p><strong>Ruta / Destino:</strong> ${viaje.destino}</p></td>
               </tr>
               <tr>
-                <td><p><strong>Trabajador:</strong> ${obtenerNombreChofer(viaje.trabajadorId)}</p></td>
-                <td><p><strong>Almacén Origen:</strong> Almacén Principal</p></td>
+                <td><p><strong>Chofer:</strong> ${obtenerNombrePersonal(viaje.trabajadorId, choferes)}</p></td>
+                <td><p><strong>Gestor de Venta:</strong> ${obtenerNombrePersonal(viaje.gestorId, gestores)}</p></td>
               </tr>
             </table>
           </div>
@@ -291,7 +305,7 @@ export const VehiculosViajesPage = () => {
           <div class="total-recaudado">Total Potencial de Venta: S/ ${totalPotencial.toFixed(2)}</div>
           <div class="firmas">
             <div class="firma-linea">Despachado por (Almacén)</div>
-            <div class="firma-linea">Recibido por (Trabajador)</div>
+            <div class="firma-linea">Recibido por (Gestor / Chofer)</div>
           </div>
           <div class="footer">Documento generado automáticamente por el Sistema - CREDI HOGAR PLUS</div>
         </body>
@@ -392,7 +406,8 @@ export const VehiculosViajesPage = () => {
                   <td><p><strong>Ruta / Destino:</strong> ${viaje.destino}</p></td>
                 </tr>
                 <tr>
-                  <td colspan="2"><p><strong>Trabajador:</strong> ${obtenerNombreChofer(viaje.trabajadorId)}</p></td>
+                  <td><p><strong>Chofer:</strong> ${obtenerNombrePersonal(viaje.trabajadorId, choferes)}</p></td>
+                  <td><p><strong>Gestor:</strong> ${obtenerNombrePersonal(viaje.gestorId, gestores)}</p></td>
                 </tr>
               </table>
             </div>
@@ -414,7 +429,7 @@ export const VehiculosViajesPage = () => {
               </tbody>
             </table>
             <div class="firmas">
-              <div class="firma-linea">Firma del Trabajador</div>
+              <div class="firma-linea">Firma del Gestor / Chofer</div>
               <div class="firma-linea">Firma del Gerente</div>
             </div>
             <div class="footer">
@@ -563,7 +578,8 @@ export const VehiculosViajesPage = () => {
                 <td><p><strong>Ruta / Destino:</strong> ${viajeLiquidacion.destino}</p></td>
               </tr>
               <tr>
-                <td colspan="2"><p><strong>Trabajador:</strong> ${obtenerNombreChofer(viajeLiquidacion.trabajadorId)}</p></td>
+                <td><p><strong>Chofer:</strong> ${obtenerNombrePersonal(viajeLiquidacion.trabajadorId, choferes)}</p></td>
+                <td><p><strong>Gestor:</strong> ${obtenerNombrePersonal(viajeLiquidacion.gestorId, gestores)}</p></td>
               </tr>
             </table>
           </div>
@@ -584,7 +600,7 @@ export const VehiculosViajesPage = () => {
             <tbody>${filasTabla || '<tr><td colspan="7" style="text-align:center; padding:10px;">No hubo movimientos</td></tr>'}</tbody>
           </table>
           <div class="firmas">
-            <div class="firma-linea">Firma del Trabajador</div>
+            <div class="firma-linea">Firma del Gestor / Chofer</div>
             <div class="firma-linea">Aprobado por (Gerencia)</div>
           </div>
           <div class="footer">Documento generado automáticamente por el Sistema - CREDI HOGAR PLUS</div>
@@ -659,23 +675,34 @@ export const VehiculosViajesPage = () => {
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#f1f5f9' }}>
                       <TableCell sx={{ fontWeight: 'bold' }}>ID Viaje</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Fecha Salida</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Destino / Ruta</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Vehículo / Chofer</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Fecha / Destino</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Vehículo / Personal</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>Estado</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 'bold' }}>Acciones (PDFs y Liquidación)</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 'bold' }}>Acciones</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {viajes.length === 0 ? <TableRow><TableCell colSpan={6} align="center">No hay viajes programados</TableCell></TableRow> : viajes.map((viaje) => (
+                    {viajes.length === 0 ? <TableRow><TableCell colSpan={5} align="center">No hay viajes programados</TableCell></TableRow> : viajes.map((viaje) => (
                       <TableRow key={viaje.id} sx={{ '&:hover': { bgcolor: '#f8fafc' } }}>
                         <TableCell sx={{ fontWeight: 'bold', color: '#0a348a' }}>TRIP-{viaje.id}</TableCell>
-                        <TableCell>{viaje.fecha}</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold', color: '#0f172a' }}>{viaje.destino}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#0f172a' }}>{viaje.destino}</Typography>
+                          <Typography variant="caption">{viaje.fecha}</Typography>
+                        </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><LocalShipping fontSize="small" sx={{ color: '#64748b' }}/> {viaje.vehiculoPlaca || viaje.vehiculo?.placa}</Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><PersonIcon fontSize="small" sx={{ color: '#64748b' }}/> <Typography variant="caption">{obtenerNombreChofer(viaje.trabajadorId)}</Typography></Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <LocalShipping fontSize="small" sx={{ color: '#64748b' }}/> 
+                              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{viaje.vehiculoPlaca || viaje.vehiculo?.placa}</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <PersonIcon fontSize="small" sx={{ color: '#64748b' }}/> 
+                              <Typography variant="caption">Chofer: {obtenerNombrePersonal(viaje.trabajadorId, choferes)}</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <BadgeIcon fontSize="small" sx={{ color: '#0ea5e9' }}/> 
+                              <Typography variant="caption" sx={{ color: '#0ea5e9', fontWeight: 'bold' }}>Gestor: {obtenerNombrePersonal(viaje.gestorId, gestores)}</Typography>
+                            </Box>
                           </Box>
                         </TableCell>
                         <TableCell><Chip label={viaje.estado} color={viaje.estado === 'BORRADOR' ? 'primary' : viaje.estado === 'CARGADO' ? 'success' : viaje.estado === 'EN_RUTA' ? 'info' : 'default'} size="small" sx={{ fontWeight: 'bold', borderRadius: 1 }} /></TableCell>
@@ -731,7 +758,6 @@ export const VehiculosViajesPage = () => {
         </Box>
         <DialogContent sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            {/* CORRECCIÓN APLICADA: slotProps para no chocar con las interfaces estrictas de MUI */}
             <TextField 
               label="Placa" 
               fullWidth 
@@ -756,6 +782,7 @@ export const VehiculosViajesPage = () => {
         <DialogActions sx={{ p: 3, pt: 1 }}><Button onClick={() => setOpenVehiculo(false)}>Cancelar</Button><Button variant="contained" onClick={guardarVehiculo} sx={{ bgcolor: '#4f46e5' }}>Guardar</Button></DialogActions>
       </Dialog>
 
+      {/* MODAL PROGRAMAR VIAJE ACTUALIZADO CON CHOFER Y GESTOR */}
       <Dialog open={openViaje} onClose={() => setOpenViaje(false)} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 3, pb: 2, bgcolor: '#fdf4ff', borderBottom: '1px solid #fae8ff' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}><Box sx={{ display: 'flex', p: 1, bgcolor: '#f5d0fe', borderRadius: 2 }}><RouteIcon sx={{ color: '#c026d3' }} /></Box><Typography variant="h6" sx={{ fontWeight: 'bold', color: '#4a044e' }}>Programar Viaje</Typography></Box>
@@ -764,12 +791,21 @@ export const VehiculosViajesPage = () => {
         <DialogContent sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <TextField label="Destino / Ruta" fullWidth value={formViaje.destino} onChange={(e) => setFormViaje({...formViaje, destino: e.target.value})} />
+            
             <TextField select label="Vehículo" fullWidth value={formViaje.vehiculoId} onChange={(e) => setFormViaje({...formViaje, vehiculoId: e.target.value})}>
               {vehiculos.filter(v => v.estado === 'DISPONIBLE').map((v) => <MenuItem key={v.id} value={v.id.toString()}>{v.placa} - {v.marca}</MenuItem>)}
             </TextField>
-            <TextField select label="Chofer" fullWidth value={formViaje.trabajadorId} onChange={(e) => setFormViaje({...formViaje, trabajadorId: e.target.value})}>
-              {trabajadores.map((t) => <MenuItem key={t.id} value={t.id.toString()}>{t.nombre} {t.apellidos}</MenuItem>)}
+            
+            <TextField select label="Chofer (Conductor)" fullWidth value={formViaje.trabajadorId} onChange={(e) => setFormViaje({...formViaje, trabajadorId: e.target.value})}>
+              {choferes.length === 0 && <MenuItem disabled value="">No hay choferes disponibles</MenuItem>}
+              {choferes.map((t) => <MenuItem key={t.id} value={t.id.toString()}>{t.nombre} {t.apellidos}</MenuItem>)}
             </TextField>
+
+            <TextField select label="Gestor de Venta" fullWidth value={formViaje.gestorId} onChange={(e) => setFormViaje({...formViaje, gestorId: e.target.value})}>
+              {gestores.length === 0 && <MenuItem disabled value="">No hay gestores disponibles</MenuItem>}
+              {gestores.map((g) => <MenuItem key={g.id} value={g.id.toString()}>{g.nombre} {g.apellidos}</MenuItem>)}
+            </TextField>
+
             <TextField label="Fecha" type="date" fullWidth value={formViaje.fecha} onChange={(e) => setFormViaje({...formViaje, fecha: e.target.value})} slotProps={{ inputLabel: { shrink: true } }} />
           </Box>
         </DialogContent>

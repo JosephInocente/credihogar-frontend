@@ -9,7 +9,7 @@ import { VentasTrabajadorPage } from './pages/VentasTrabajadorPage';
 import { TrabajadoresPage } from './pages/TrabajadoresPage';
 import { ProductosPage } from './pages/ProductosPage';
 import { PuntoDeVentaPage } from './pages/PuntoDeVentaPage';
-import { ReportesPage } from './pages/ReportesPage'; // <-- NUEVO IMPORT
+import { ReportesPage } from './pages/ReportesPage';
 import { Layout } from './components/Layout';
 
 function App() {
@@ -28,7 +28,7 @@ function App() {
           <Route path="/trabajadores" element={<TrabajadoresPage />} />
           <Route path="/clientes" element={<ClientesPage />} />
           <Route path="/facturacion" element={<FacturacionPage />} />
-          <Route path="/reportes" element={<ReportesPage />} /> {/* <-- NUEVA RUTA DE REPORTES */}
+          <Route path="/reportes" element={<ReportesPage />} /> 
         </Route>
         
         <Route path="*" element={<Navigate to="/dashboard" />} />

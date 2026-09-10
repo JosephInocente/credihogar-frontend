@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Box, Drawer, AppBar, Toolbar, Typography, Divider, 
   List, ListItem, ListItemButton, ListItemIcon, ListItemText, 
@@ -7,7 +7,7 @@ import {
 import { 
   Menu as MenuIcon, Dashboard, Inventory, LocalShipping, 
   People, Receipt, Logout, Badge as BadgeIcon, PointOfSale,
-  Assessment as AssessmentIcon // <-- NUEVO ÍCONO IMPORTADO
+  Assessment as AssessmentIcon
 } from '@mui/icons-material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { LocalOffer } from '@mui/icons-material';
@@ -17,8 +17,29 @@ const drawerWidth = 260;
 
 export const Layout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userRole, setUserRole] = useState('GERENTE');
+  const [userName, setUserName] = useState('G'); // Para la inicial del Avatar
+
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    // NUEVA LÓGICA: Leemos el Token para saber quién inició sesión
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const payloadBase64 = token.split('.')[1];
+        const decodedJson = atob(payloadBase64);
+        const payload = JSON.parse(decodedJson);
+        setUserRole(payload.rol || 'GERENTE');
+        
+        const usernameFull = payload.sub || payload.username || 'Usuario';
+        setUserName(usernameFull.charAt(0).toUpperCase());
+      } catch (error) {
+        console.error("Error leyendo token:", error);
+      }
+    }
+  }, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -29,7 +50,7 @@ export const Layout = () => {
     navigate('/');
   };
 
-  const menuItems = [
+  const allMenuItems = [
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
     { text: 'Punto de Venta', icon: <PointOfSale />, path: '/punto-venta' },
     { text: 'Catálogo', icon: <LocalOffer />, path: '/productos' }, 
@@ -38,8 +59,18 @@ export const Layout = () => {
     { text: 'Personal', icon: <BadgeIcon />, path: '/trabajadores' },
     { text: 'Clientes', icon: <People />, path: '/clientes' },
     { text: 'Facturación', icon: <Receipt />, path: '/facturacion' },
-    { text: 'Reportes', icon: <AssessmentIcon />, path: '/reportes' }, // <-- NUEVO ITEM EN EL MENÚ
+    { text: 'Reportes', icon: <AssessmentIcon />, path: '/reportes' },
   ];
+
+  // FILTRO INTELIGENTE DE VISTAS POR ROL
+  const menuItems = allMenuItems.filter(item => {
+    if (userRole === 'GESTOR') {
+      const rutasPermitidasGestor = ['/dashboard', '/punto-venta', '/productos', '/inventario', '/clientes', '/reportes'];
+      return rutasPermitidasGestor.includes(item.path);
+    }
+    // Si es GERENTE, ve todo
+    return true; 
+  });
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#0a348a', color: '#ffffff' }}>
@@ -106,9 +137,11 @@ export const Layout = () => {
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ mr: 2, display: { xs: 'none', sm: 'block' }, fontWeight: 'bold', color: '#64748b' }}>
-              Gerente General
+              {userRole === 'GESTOR' ? 'Gestor de Venta' : 'Gerente General'}
             </Typography>
-            <Avatar sx={{ bgcolor: '#0a348a', width: 35, height: 35 }}>G</Avatar>
+            <Avatar sx={{ bgcolor: userRole === 'GESTOR' ? '#16a34a' : '#0a348a', width: 35, height: 35 }}>
+              {userName}
+            </Avatar>
           </Box>
         </Toolbar>
       </AppBar>

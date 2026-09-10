@@ -27,9 +27,9 @@ export const TrabajadoresPage = () => {
     try {
       setLoading(true);
       const response = await api.get('/usuarios');
-      // CORRECCIÓN 2: Filtramos para que SOLO se muestren los que tienen rol TRABAJADOR
-      const soloTrabajadores = response.data.filter((u: any) => u.rol === 'TRABAJADOR');
-      setUsuarios(soloTrabajadores);
+      // AHORA MOSTRAMOS A TRABAJADORES Y GESTORES
+      const personalOperativo = response.data.filter((u: any) => u.rol === 'TRABAJADOR' || u.rol === 'GESTOR');
+      setUsuarios(personalOperativo);
     } catch (error) {
       console.error("Error cargando usuarios", error);
     } finally {
@@ -48,17 +48,16 @@ export const TrabajadoresPage = () => {
     setBuscandoDni(true);
     try {
       const response = await api.get(`/usuarios/dni/${form.dni}`);
-      const nombreCompleto = response.data.nombreCompleto; // Ej: "HURTADO INOCENTE JOSEPH JUSTO"
+      const nombreCompleto = response.data.nombreCompleto; 
 
       if (nombreCompleto) {
         const partes = nombreCompleto.split(' ').filter((p: string) => p.length > 0);
         let apellidosCalc = '';
         let nombresCalc = nombreCompleto;
 
-        // CORRECCIÓN 1: En Perú, RENIEC devuelve casi siempre: [APELLIDO_PAT] [APELLIDO_MAT] [NOMBRES...]
         if (partes.length >= 3) {
-          apellidosCalc = `${partes[0]} ${partes[1]}`; // Los dos primeros son apellidos
-          nombresCalc = partes.slice(2).join(' '); // El resto son los nombres
+          apellidosCalc = `${partes[0]} ${partes[1]}`; 
+          nombresCalc = partes.slice(2).join(' '); 
         } else if (partes.length === 2) {
           apellidosCalc = partes[0];
           nombresCalc = partes[1];
@@ -95,16 +94,16 @@ export const TrabajadoresPage = () => {
   };
 
   const guardarUsuario = async () => {
-    if (!form.dni || !form.nombre || !form.username) {
-      alert("DNI, Nombre y Usuario son obligatorios"); return;
+    if (!form.dni || !form.nombre || !form.username || !form.rol) {
+      alert("DNI, Nombre, Usuario y Rol son obligatorios"); return;
     }
     try {
       if (isEditing && usuarioSeleccionado) {
         await api.put(`/usuarios/${usuarioSeleccionado}`, form);
-        alert("✅ Trabajador actualizado exitosamente.");
+        alert("✅ Personal actualizado exitosamente.");
       } else {
         await api.post('/usuarios', form);
-        alert("✅ Trabajador registrado. La contraseña temporal es su número de DNI.");
+        alert(`✅ ${form.rol} registrado. La contraseña temporal es su número de DNI.`);
       }
       setOpenModal(false);
       cargarUsuarios();
@@ -114,10 +113,10 @@ export const TrabajadoresPage = () => {
   };
 
   const eliminarUsuario = async (id: number) => {
-    if (window.confirm("¿Seguro que deseas eliminar a este trabajador?")) {
+    if (window.confirm("¿Seguro que deseas eliminar a esta persona?")) {
       try {
         await api.delete(`/usuarios/${id}`);
-        alert("✅ Usuario eliminado");
+        alert("✅ Personal eliminado");
         cargarUsuarios();
       } catch (error) {
         alert("❌ No se puede eliminar porque tiene viajes o registros asociados.");
@@ -129,10 +128,10 @@ export const TrabajadoresPage = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1e293b' }}>
-          Gestión del Personal
+          Gestión del Personal Operativo
         </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={abrirModalNuevo} sx={{ bgcolor: '#0a348a', textTransform: 'none', borderRadius: 2 }}>
-          Nuevo Trabajador
+          Nuevo Personal
         </Button>
       </Box>
 
@@ -146,7 +145,7 @@ export const TrabajadoresPage = () => {
                   <TableCell sx={{ fontWeight: 'bold' }}>Nombre Completo</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Usuario</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Contacto</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Rol</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Rol Asignado</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Estado</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 'bold' }}>Acciones</TableCell>
                 </TableRow>
@@ -165,7 +164,12 @@ export const TrabajadoresPage = () => {
                         <Typography variant="caption" color="text.secondary">{u.email || '-'}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Chip label={u.rol} color={u.rol === 'GERENTE' ? 'secondary' : 'default'} size="small" />
+                        <Chip 
+                          label={u.rol === 'GESTOR' ? 'GESTOR DE VENTA' : 'CHOFER (TRABAJADOR)'} 
+                          color={u.rol === 'GESTOR' ? 'primary' : 'default'} 
+                          size="small" 
+                          sx={{ fontWeight: 'bold' }} 
+                        />
                       </TableCell>
                       <TableCell>
                         <Chip label={u.estado} color={u.estado === 'ACTIVO' ? 'success' : 'error'} size="small" />
@@ -234,19 +238,23 @@ export const TrabajadoresPage = () => {
               <TextField label="Email (Opcional)" fullWidth value={form.email} onChange={e => setForm({...form, email: e.target.value})} slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2 } } }} />
             </Box>
 
-            {/* Ocultamos el campo "Rol" porque ya forzamos a que todos los creados por aquí sean TRABAJADOR */}
-            {isEditing && (
-              <Box sx={{ display: 'flex', gap: 2 }}>
+            {/* NUEVO: SELECCIÓN DE ROL */}
+            <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField select label="Rol Asignado" fullWidth value={form.rol} onChange={e => setForm({...form, rol: e.target.value})} slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2 } } }}>
+                <MenuItem value="TRABAJADOR">CHOFER (TRABAJADOR)</MenuItem>
+                <MenuItem value="GESTOR">GESTOR DE VENTA</MenuItem>
+              </TextField>
+              {isEditing && (
                 <TextField select label="Estado" fullWidth value={form.estado} onChange={e => setForm({...form, estado: e.target.value})} slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2 } } }}>
                   <MenuItem value="ACTIVO">ACTIVO</MenuItem>
                   <MenuItem value="INACTIVO">INACTIVO (Suspendido)</MenuItem>
                 </TextField>
-              </Box>
-            )}
+              )}
+            </Box>
 
             {!isEditing && (
               <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
-                * La contraseña inicial por defecto será el mismo número de DNI del trabajador. El rol "Trabajador" se asignará automáticamente.
+                * La contraseña inicial por defecto será el mismo número de DNI.
               </Typography>
             )}
           </Box>
