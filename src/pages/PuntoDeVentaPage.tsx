@@ -4,7 +4,10 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Divider, CircularProgress, MenuItem, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
-import { Search as SearchIcon, AddShoppingCart, Delete as DeleteIcon, PointOfSale, Print as PrintIcon, CheckCircleOutlined } from '@mui/icons-material';
+import { 
+  Search as SearchIcon, AddShoppingCart, Delete as DeleteIcon, 
+  PointOfSale, Print as PrintIcon, CheckCircleOutlined, LocalShipping 
+} from '@mui/icons-material';
 import { api } from '../api/axiosConfig';
 
 interface ProductoPOS {
@@ -26,18 +29,40 @@ export const PuntoDeVentaPage = () => {
   const [razonSocial, setRazonSocial] = useState('');
   const [buscandoExterna, setBuscandoExterna] = useState(false);
   const [errorMensaje, setErrorMensaje] = useState('');
+  const [errorGestor, setErrorGestor] = useState('');
 
   const [openConfirmarVenta, setOpenConfirmarVenta] = useState(false);
   const [openTicket, setOpenTicket] = useState(false);
   const [ticketData, setTicketData] = useState<any>(null);
 
+  const [userRole, setUserRole] = useState('GERENTE');
+  const [userId, setUserId] = useState<number | null>(null);
+
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    let rol = 'GERENTE';
+    let id = null;
+
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        rol = payload.rol || payload.role || 'GERENTE';
+        id = payload.id || payload.usuarioId || localStorage.getItem('usuarioId');
+        setUserRole(rol);
+        setUserId(Number(id));
+      } catch (e) { console.error(e); }
+    }
+
     const fetchProductosPOS = async () => {
       try {
-        const response = await api.get('/pos/productos');
+        const response = await api.get(`/pos/productos?usuarioId=${id}&rol=${rol}`);
         setProductos(response.data);
-      } catch (error) {
-        console.error("Error al cargar el catálogo de ventas", error);
+      } catch (error: any) {
+        if (error.response?.status === 400) {
+          setErrorGestor(error.response.data.error || "No tienes un viaje asignado.");
+        } else {
+          console.error("Error al cargar el catálogo de ventas", error);
+        }
       } finally {
         setLoading(false);
       }
@@ -49,7 +74,6 @@ export const PuntoDeVentaPage = () => {
     if (!numeroDocumento) return;
     setBuscandoExterna(true);
     setErrorMensaje('');
-    
     try {
       const response = await api.get(`/clientes/externo/${tipoDocumento}/${numeroDocumento}`);
       setRazonSocial(response.data.razonSocial || '');
@@ -66,6 +90,8 @@ export const PuntoDeVentaPage = () => {
     if (existe) {
       if (existe.cantidad < producto.stock) {
         setCarrito(carrito.map(item => item.id === producto.id ? { ...item, cantidad: item.cantidad + 1 } : item));
+      } else {
+        alert(`No hay más stock disponible de ${producto.nombre}`);
       }
     } else {
       setCarrito([...carrito, { ...producto, cantidad: 1 }]);
@@ -94,11 +120,7 @@ export const PuntoDeVentaPage = () => {
     }
   };
 
-  const total = carrito.reduce((sum, item) => {
-    const precioSeguro = Number(item.precio) || 0;
-    const cantidadSegura = Number(item.cantidad) || 0;
-    return sum + (precioSeguro * cantidadSegura);
-  }, 0);
+  const total = carrito.reduce((sum, item) => sum + (Number(item.precio) * Number(item.cantidad)), 0);
 
   const intentarProcesarVenta = () => {
     if (numeroDocumento.trim() !== '' && razonSocial.trim() === '') {
@@ -117,6 +139,7 @@ export const PuntoDeVentaPage = () => {
       clienteDocumento: numeroDocumento,
       clienteNombre: razonSocial,
       totalVenta: total,
+      usuarioId: userId,
       detalles: carrito.map(item => ({
         inventarioId: item.id,
         cantidad: item.cantidad,
@@ -141,7 +164,7 @@ export const PuntoDeVentaPage = () => {
       setNumeroDocumento('');
       setRazonSocial('');
       
-      const resCat = await api.get('/pos/productos');
+      const resCat = await api.get(`/pos/productos?usuarioId=${userId}&rol=${userRole}`);
       setProductos(resCat.data);
 
       setOpenTicket(true);
@@ -161,17 +184,8 @@ export const PuntoDeVentaPage = () => {
           <head>
             <title>Ticket Venta #${ticketData?.ventaId || '000'}</title>
             <style>
-              body { 
-                font-family: 'Courier New', Courier, monospace; 
-                width: 80mm; 
-                margin: 0; 
-                padding: 10px; 
-                color: #000; 
-                font-size: 12px;
-              }
-              .center { text-align: center; }
-              .right { text-align: right; }
-              .bold { font-weight: bold; }
+              body { font-family: 'Courier New', Courier, monospace; width: 80mm; margin: 0; padding: 10px; color: #000; font-size: 12px; }
+              .center { text-align: center; } .right { text-align: right; } .bold { font-weight: bold; }
               .divider { border-bottom: 1px dashed #000; margin: 8px 0; }
               table { width: 100%; border-collapse: collapse; margin-top: 10px; }
               th, td { text-align: left; padding: 2px 0; font-size: 12px; }
@@ -179,34 +193,35 @@ export const PuntoDeVentaPage = () => {
               .header-title { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
             </style>
           </head>
-          <body>
-            ${contenido}
-          </body>
+          <body>${contenido}</body>
         </html>
       `);
       ventanaImpresion.document.close();
       ventanaImpresion.focus();
-      setTimeout(() => {
-        ventanaImpresion.print();
-        ventanaImpresion.close();
-      }, 250);
+      setTimeout(() => { ventanaImpresion.print(); ventanaImpresion.close(); }, 250);
     }
   };
 
-  // CORRECCIÓN PRINCIPAL: Solo ocultamos el ticket, NO vaciamos los datos
-  const cerrarTicket = () => {
-    setOpenTicket(false);
-  };
+  if (errorGestor) {
+    return (
+      <Box sx={{ height: 'calc(100vh - 100px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Paper elevation={0} sx={{ p: 5, borderRadius: 4, textAlign: 'center', border: '1px solid #f87171', bgcolor: '#fef2f2', maxWidth: 500 }}>
+          <LocalShipping sx={{ fontSize: 60, color: '#ef4444', mb: 2 }} />
+          <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#7f1d1d', mb: 1 }}>Ruta No Activa</Typography>
+          <Typography variant="body1" color="text.secondary">{errorGestor}</Typography>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
       <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1e293b', mb: 3 }}>
-        Punto de Venta (Tienda Principal)
+        {userRole === 'GESTOR' ? 'Punto de Venta (Ruta Móvil)' : 'Punto de Venta (Tienda Principal)'}
       </Typography>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '7fr 5fr' }, gap: 3, flexGrow: 1, alignItems: 'stretch' }}>
         
-        {/* PANEL IZQUIERDO */}
         <Box sx={{ height: '100%' }}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', height: { xs: 'auto', md: 'calc(100vh - 160px)' }, display: 'flex', flexDirection: 'column' }}>
             <TextField 
@@ -239,7 +254,11 @@ export const PuntoDeVentaPage = () => {
                           <Typography variant="caption" color="text.secondary">SKU: {prod.sku}</Typography>
                         </TableCell>
                         <TableCell sx={{ fontWeight: 'bold', color: '#0a348a' }}>S/ {prod.precio.toFixed(2)}</TableCell>
-                        <TableCell>{prod.stock}</TableCell>
+                        <TableCell>
+                          <Typography sx={{ color: prod.stock <= 2 ? '#d32f2f' : 'inherit', fontWeight: prod.stock <= 2 ? 'bold' : 'normal' }}>
+                            {prod.stock}
+                          </Typography>
+                        </TableCell>
                         <TableCell align="center">
                           <IconButton color="primary" onClick={() => agregarAlCarrito(prod)}>
                             <AddShoppingCart />
@@ -254,7 +273,6 @@ export const PuntoDeVentaPage = () => {
           </Paper>
         </Box>
 
-        {/* PANEL DERECHO */}
         <Box sx={{ height: '100%' }}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#f8fafc', height: { xs: 'auto', md: 'calc(100vh - 160px)' }, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
             
@@ -330,96 +348,62 @@ export const PuntoDeVentaPage = () => {
         </Box>
       </Box>
 
-      {/* MODAL DE CONFIRMACIÓN DE DATOS DEL CLIENTE */}
+      {/* MODAL DE CONFIRMACIÓN */}
       <Dialog open={openConfirmarVenta} onClose={() => setOpenConfirmarVenta(false)} maxWidth="xs" fullWidth sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
-        <DialogTitle sx={{ bgcolor: '#0a348a', color: 'white', fontWeight: 'bold', textAlign: 'center' }}>
-          Confirmar Datos de Venta
-        </DialogTitle>
+        <DialogTitle sx={{ bgcolor: '#0a348a', color: 'white', fontWeight: 'bold', textAlign: 'center' }}>Confirmar Datos de Venta</DialogTitle>
         <DialogContent sx={{ p: 3, mt: 2 }}>
-          <Typography variant="body1" sx={{ mb: 2 }}>
-            Por favor, verifica a nombre de quién saldrá el comprobante:
-          </Typography>
+          <Typography variant="body1" sx={{ mb: 2 }}>Por favor, verifica a nombre de quién saldrá el comprobante:</Typography>
           <Paper elevation={0} sx={{ p: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2 }}>
             <Typography variant="body2" color="text.secondary">Documento:</Typography>
-            <Typography variant="body1" sx={{ fontWeight: 'bold', mb: 1.5, color: '#0f172a' }}>
-              {numeroDocumento || 'Sin Documento'}
-            </Typography>
-
+            <Typography variant="body1" sx={{ fontWeight: 'bold', mb: 1.5, color: '#0f172a' }}>{numeroDocumento || 'Sin Documento'}</Typography>
             <Typography variant="body2" color="text.secondary">Cliente / Razón Social:</Typography>
-            <Typography variant="body1" sx={{ fontWeight: 'bold', color: '#0f172a' }}>
-              {razonSocial || 'Público en General'}
-            </Typography>
+            <Typography variant="body1" sx={{ fontWeight: 'bold', color: '#0f172a' }}>{razonSocial || 'Público en General'}</Typography>
           </Paper>
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 0, justifyContent: 'space-between' }}>
-          <Button onClick={() => setOpenConfirmarVenta(false)} color="inherit" sx={{ fontWeight: 'bold', textTransform: 'none' }}>
-            Atrás (Corregir)
-          </Button>
-          <Button variant="contained" onClick={procesarVenta} startIcon={<PointOfSale />} sx={{ bgcolor: '#16a34a', fontWeight: 'bold', textTransform: 'none' }}>
-            Realizar Venta
-          </Button>
+          <Button onClick={() => setOpenConfirmarVenta(false)} color="inherit" sx={{ fontWeight: 'bold', textTransform: 'none' }}>Atrás (Corregir)</Button>
+          <Button variant="contained" onClick={procesarVenta} startIcon={<PointOfSale />} sx={{ bgcolor: '#16a34a', fontWeight: 'bold', textTransform: 'none' }}>Realizar Venta</Button>
         </DialogActions>
       </Dialog>
 
-      {/* DIÁLOGO / MODAL DEL TICKET DE VENTA (BLINDADO CONTRA ERRORES) */}
-      <Dialog open={openTicket} onClose={cerrarTicket} maxWidth="xs" fullWidth>
+      {/* MODAL DEL TICKET */}
+      <Dialog open={openTicket} onClose={() => setOpenTicket(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ textAlign: 'center', bgcolor: '#f8fafc', color: '#0f172a', fontWeight: 'bold' }}>
-          <CheckCircleOutlined color="success" sx={{ fontSize: 40, mb: 1 }} />
-          <br />
-          Venta Exitosa
+          <CheckCircleOutlined color="success" sx={{ fontSize: 40, mb: 1 }} /><br />Venta Exitosa
         </DialogTitle>
         <DialogContent sx={{ bgcolor: '#f1f5f9', py: 3, display: 'flex', justifyContent: 'center' }}>
-          
           <Paper id="area-impresion-ticket" elevation={3} sx={{ width: '300px', p: 2, fontFamily: 'monospace', bgcolor: '#fff' }}>
             <div className="center header-title">CREDI HOGAR</div>
             <div className="center">Pichanaki, Perú</div>
             <div className="center">RUC: 20123456789</div>
             <div className="divider"></div>
-            
-            {/* El operador ?. y || previenen que el ticket truene si falta algún dato */}
             <div><span className="bold">Ticket:</span> V-{ticketData?.ventaId ? String(ticketData.ventaId).padStart(6, '0') : '------'}</div>
             <div><span className="bold">Fecha:</span> {ticketData?.fecha || '--'}</div>
             <div><span className="bold">Cliente:</span> {ticketData?.clienteNombre || '--'}</div>
             <div><span className="bold">Doc:</span> {ticketData?.clienteDocumento || '--'}</div>
             <div className="divider"></div>
-            
             <table>
               <thead>
-                <tr>
-                  <th>CANT</th>
-                  <th>DESCRIPCIÓN</th>
-                  <th className="col-precio">IMPORTE</th>
-                </tr>
+                <tr><th>CANT</th><th>DESCRIPCIÓN</th><th className="col-precio">IMPORTE</th></tr>
               </thead>
               <tbody>
                 {ticketData?.detalles?.map((item: any) => (
                   <tr key={item.id}>
-                    <td>{item.cantidad}</td>
-                    <td>{item.nombre}</td>
+                    <td>{item.cantidad}</td><td>{item.nombre}</td>
                     <td className="col-precio">{(item.cantidad * Number(item.precio || 0)).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            
             <div className="divider"></div>
-            <div className="right bold" style={{ fontSize: '16px', marginTop: '10px' }}>
-              TOTAL: S/ {Number(ticketData?.total || 0).toFixed(2)}
-            </div>
+            <div className="right bold" style={{ fontSize: '16px', marginTop: '10px' }}>TOTAL: S/ {Number(ticketData?.total || 0).toFixed(2)}</div>
             <div className="divider"></div>
-            <div className="center" style={{ marginTop: '15px' }}>
-              ¡Gracias por su compra!
-            </div>
+            <div className="center" style={{ marginTop: '15px' }}>¡Gracias por su compra!</div>
           </Paper>
-
         </DialogContent>
         <DialogActions sx={{ p: 2, justifyContent: 'center', gap: 2 }}>
-          <Button variant="outlined" color="inherit" onClick={cerrarTicket}>
-            Nueva Venta
-          </Button>
-          <Button variant="contained" color="primary" startIcon={<PrintIcon />} onClick={imprimirTicket}>
-            Imprimir Ticket
-          </Button>
+          <Button variant="outlined" color="inherit" onClick={() => setOpenTicket(false)}>Nueva Venta</Button>
+          <Button variant="contained" color="primary" startIcon={<PrintIcon />} onClick={imprimirTicket}>Imprimir Ticket</Button>
         </DialogActions>
       </Dialog>
     </Box>

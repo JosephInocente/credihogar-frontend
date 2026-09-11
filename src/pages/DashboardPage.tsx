@@ -4,11 +4,14 @@ import {
 } from '@mui/material';
 import { 
   TrendingUp, PointOfSale, LocalShipping, AssignmentLate, 
-  Inventory2, CheckCircle, WarningAmber, ArrowUpward 
+  Inventory2, CheckCircle, WarningAmber, ArrowUpward, Route as RouteIcon
 } from '@mui/icons-material';
 import { api } from '../api/axiosConfig';
 
 export const DashboardPage = () => {
+  const [userRole, setUserRole] = useState('GERENTE');
+  const [viajeGestor, setViajeGestor] = useState<any>(null);
+
   const [stats, setStats] = useState({
     ventasHoy: 0,
     ventasMes: 0,
@@ -19,33 +22,100 @@ export const DashboardPage = () => {
   const [alertasStock, setAlertasStock] = useState<any[]>([]);
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    let rol = 'GERENTE';
+    let id = null;
+    
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        rol = payload.rol || payload.role || 'GERENTE';
+        id = payload.id || payload.usuarioId || localStorage.getItem('usuarioId');
+        setUserRole(rol);
+      } catch (e) { console.error(e); }
+    }
+
     const cargarDatosDashboard = async () => {
+      if (rol === 'GESTOR') {
+        try {
+          const resViajes = await api.get('/logistica/viajes');
+          const miViaje = resViajes.data.find((v: any) => 
+            v.gestorId === Number(id) && (v.estado === 'CARGADO' || v.estado === 'EN_RUTA')
+          );
+          setViajeGestor(miViaje);
+        } catch (e) { console.error(e); }
+        return; 
+      }
+
       try {
         const resVentas = await api.get('/reportes/ventas');
         if (resVentas.data && resVentas.data.length > 0) {
           const totalHoy = resVentas.data.reduce((acc: number, curr: any) => acc + (curr.total || 0), 0);
           setStats(prev => ({ ...prev, ventasHoy: totalHoy, ventasMes: totalHoy * 4 }));
         }
-      } catch (error) {
-        console.error("Error al cargar ventas", error);
-      }
+      } catch (error) { console.error(error); }
 
       try {
         const resAlertas = await api.get('/alertas/stock-bajo');
-        if (resAlertas.data) {
-          setAlertasStock(resAlertas.data);
-        }
-      } catch (error) {
-        console.error("Error al cargar alertas de inventario", error);
-      }
+        if (resAlertas.data) setAlertasStock(resAlertas.data);
+      } catch (error) { console.error(error); }
     };
 
     cargarDatosDashboard();
   }, []);
 
+  if (userRole === 'GESTOR') {
+    return (
+      <Box sx={{ p: 1 }}>
+        <Typography variant="h4" sx={{ fontWeight: '800', color: '#0f172a', mb: 1 }}>
+          Bienvenido, Gestor de Ruta
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+          Dirígete a la pestaña "Punto de Venta" para gestionar las transacciones de tu viaje actual.
+        </Typography>
+
+        {!viajeGestor ? (
+          <Paper elevation={0} sx={{ p: 4, borderRadius: 4, textAlign: 'center', bgcolor: '#ffffff', border: '1px solid #e2e8f0', maxWidth: 600 }}>
+            <LocalShipping sx={{ fontSize: 60, color: '#94a3b8', mb: 2 }} />
+            <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#334155', mb: 1 }}>
+              Sin viajes asignados
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Actualmente no tienes ningún vehículo cargado ni en ruta a tu cargo. Espera a que Gerencia te asigne una nueva programación.
+            </Typography>
+          </Paper>
+        ) : (
+          <Paper elevation={0} sx={{ p: 4, borderRadius: 4, bgcolor: '#0a348a', color: 'white', maxWidth: 600 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+              <RouteIcon sx={{ fontSize: 40, color: '#60a5fa' }} />
+              <Box>
+                <Typography variant="caption" sx={{ color: '#93c5fd', fontWeight: 'bold' }}>VIAJE ACTIVO</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 'bold' }}>TRIP-{viajeGestor.id}</Typography>
+              </Box>
+            </Box>
+            <Divider sx={{ borderColor: 'rgba(255,255,255,0.2)', mb: 3 }} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography sx={{ color: '#cbd5e1' }}>Destino Asignado:</Typography>
+                <Typography sx={{ fontWeight: 'bold' }}>{viajeGestor.destino}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography sx={{ color: '#cbd5e1' }}>Placa del Vehículo:</Typography>
+                <Typography sx={{ fontWeight: 'bold' }}>{viajeGestor.vehiculoPlaca || 'No registrada'}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography sx={{ color: '#cbd5e1' }}>Estado Operativo:</Typography>
+                <Chip label={viajeGestor.estado} sx={{ bgcolor: '#16a34a', color: 'white', fontWeight: 'bold' }} size="small" />
+              </Box>
+            </Box>
+          </Paper>
+        )}
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ p: 1 }}>
-      {/* CABECERA */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: '800', color: '#0f172a', letterSpacing: '-0.5px' }}>
@@ -61,7 +131,6 @@ export const DashboardPage = () => {
         </Box>
       </Box>
 
-      {/* TARJETAS SUPERIORES DE MÉTRICAS */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 3, mb: 3 }}>
         <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -138,9 +207,7 @@ export const DashboardPage = () => {
         </Paper>
       </Box>
 
-      {/* SECCIÓN INFERIOR: CONTENEDORES PRINCIPALES */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '8fr 4fr' }, gap: 3 }}>
-        {/* IZQUIERDA: TABLA DINÁMICA DE ALERTAS CRÍTICAS */}
         <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: '#ffffff', minHeight: '380px' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
             <WarningAmber sx={{ color: '#d97706' }} />
@@ -202,7 +269,6 @@ export const DashboardPage = () => {
           )}
         </Paper>
 
-        {/* DERECHA: RESUMEN OPERATIVO */}
         <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: '#0a348a', color: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
