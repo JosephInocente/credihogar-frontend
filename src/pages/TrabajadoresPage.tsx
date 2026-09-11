@@ -134,7 +134,6 @@ export const TrabajadoresPage = () => {
     }
   };
 
-  // Estilo global para los campos de texto para evitar el bug visual
   const textFieldStyles = { '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc', borderRadius: 2 } };
 
   return (
@@ -238,7 +237,13 @@ export const TrabajadoresPage = () => {
                   } 
                 }} 
               />
-              <TextField label="Usuario de Ingreso" fullWidth value={form.username} onChange={e => setForm({...form, username: e.target.value})} sx={textFieldStyles} />
+              <TextField 
+                label="Usuario de Ingreso" 
+                fullWidth 
+                value={form.username} 
+                onChange={e => setForm({...form, username: e.target.value})} 
+                sx={textFieldStyles} 
+              />
             </Box>
 
             <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
@@ -273,6 +278,7 @@ export const TrabajadoresPage = () => {
                 value={form.password} 
                 onChange={e => setForm({...form, password: e.target.value})}
                 placeholder={isEditing ? "Dejar en blanco para mantener la actual" : "Si dejas vacío, será el DNI"}
+                helperText={isEditing ? "Por seguridad, la contraseña actual está encriptada y oculta. Escribe aquí solo si deseas cambiarla." : ""}
                 sx={textFieldStyles}
                 slotProps={{ 
                   input: { 
