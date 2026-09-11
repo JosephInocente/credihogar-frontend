@@ -41,21 +41,27 @@ export const PuntoDeVentaPage = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     let rol = 'GERENTE';
-    let id = null;
 
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         rol = payload.rol || payload.role || 'GERENTE';
-        id = payload.id || payload.usuarioId || localStorage.getItem('usuarioId');
         setUserRole(rol);
-        setUserId(Number(id));
       } catch (e) { console.error(e); }
     }
 
     const fetchProductosPOS = async () => {
       try {
-        const response = await api.get(`/pos/productos?usuarioId=${id}&rol=${rol}`);
+        // 1. OBTENER EL ID REAL DEL GESTOR CRUZANDO EL USERNAME
+        const usernameLogueado = localStorage.getItem('username');
+        const resUsuarios = await api.get('/usuarios');
+        const usuarioReal = resUsuarios.data.find((u: any) => u.username === usernameLogueado);
+        const idReal = usuarioReal ? usuarioReal.id : 2; // Fallback seguro
+        
+        setUserId(Number(idReal));
+
+        // 2. CONSULTAR CON EL ID REAL
+        const response = await api.get(`/pos/productos?usuarioId=${idReal}&rol=${rol}`);
         setProductos(response.data);
       } catch (error: any) {
         if (error.response?.status === 400) {

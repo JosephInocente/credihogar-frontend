@@ -29,13 +29,11 @@ export const DashboardPage = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     let rol = 'GERENTE';
-    let id = null;
     
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         rol = payload.rol || payload.role || 'GERENTE';
-        id = payload.id || payload.usuarioId || localStorage.getItem('usuarioId');
         setUserRole(rol);
       } catch (e) { console.error(e); }
     }
@@ -44,9 +42,22 @@ export const DashboardPage = () => {
       // --- LÓGICA DE CARGA PARA EL GESTOR ---
       if (rol === 'GESTOR') {
         try {
+          // 1. OBTENER EL ID REAL DEL GESTOR CRUZANDO EL USERNAME
+          const usernameLogueado = localStorage.getItem('username');
+          const resUsuarios = await api.get('/usuarios');
+          const usuarioReal = resUsuarios.data.find((u: any) => u.username === usernameLogueado);
+          
+          if (!usuarioReal) {
+            console.error("No se pudo identificar al usuario en la base de datos.");
+            return;
+          }
+
+          const idReal = usuarioReal.id;
+
+          // 2. BUSCAR EL VIAJE CON EL ID REAL
           const resViajes = await api.get('/logistica/viajes');
           const miViaje = resViajes.data.find((v: any) => 
-            v.gestorId === Number(id) && (v.estado === 'CARGADO' || v.estado === 'EN_RUTA')
+            Number(v.gestorId) === Number(idReal) && (v.estado === 'CARGADO' || v.estado === 'EN_RUTA')
           );
           setViajeGestor(miViaje);
 
