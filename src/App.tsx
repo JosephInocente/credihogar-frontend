@@ -9,6 +9,7 @@ import { TrabajadoresPage } from './pages/TrabajadoresPage';
 import { ProductosPage } from './pages/ProductosPage';
 import { PuntoDeVentaPage } from './pages/PuntoDeVentaPage';
 import { ReportesPage } from './pages/ReportesPage';
+import { SolicitudesPage } from './pages/SolicitudesPage'; // <-- NUEVO IMPORT
 import { Layout } from './components/Layout';
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
           <Route path="/viajes" element={<VehiculosViajesPage />} />
           <Route path="/trabajadores" element={<TrabajadoresPage />} />
           <Route path="/clientes" element={<ClientesPage />} />
+          <Route path="/solicitudes" element={<SolicitudesPage />} /> {/* <-- NUEVA RUTA */}
           <Route path="/facturacion" element={<FacturacionPage />} />
           <Route path="/reportes" element={<ReportesPage />} /> 
         </Route>

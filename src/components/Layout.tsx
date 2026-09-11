@@ -7,7 +7,7 @@ import {
 import { 
   Menu as MenuIcon, Dashboard, Inventory, LocalShipping, 
   People, Receipt, Logout, Badge as BadgeIcon, PointOfSale,
-  Assessment as AssessmentIcon, LocalOffer
+  Assessment as AssessmentIcon, LocalOffer, Assignment as AssignmentIcon
 } from '@mui/icons-material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import logoCredi from '../assets/LOGO_CREDI.png';
@@ -17,7 +17,7 @@ const drawerWidth = 260;
 export const Layout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userRole, setUserRole] = useState('GERENTE');
-  const [userName, setUserName] = useState('G'); 
+  const [userName, setUserName] = useState('G');
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -50,6 +50,7 @@ export const Layout = () => {
     navigate('/');
   };
 
+  // AGREGAMOS LA VISTA "SOLICITUDES"
   const allMenuItems = [
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
     { text: 'Punto de Venta', icon: <PointOfSale />, path: '/punto-venta' },
@@ -58,6 +59,7 @@ export const Layout = () => {
     { text: 'Vehículos y Viajes', icon: <LocalShipping />, path: '/viajes' },
     { text: 'Personal', icon: <BadgeIcon />, path: '/trabajadores' },
     { text: 'Clientes', icon: <People />, path: '/clientes' },
+    { text: 'Solicitudes', icon: <AssignmentIcon />, path: '/solicitudes' }, // <-- NUEVO
     { text: 'Facturación', icon: <Receipt />, path: '/facturacion' },
     { text: 'Reportes', icon: <AssessmentIcon />, path: '/reportes' },
   ];
@@ -65,11 +67,9 @@ export const Layout = () => {
   // FILTRO INTELIGENTE DE VISTAS POR ROL
   const menuItems = allMenuItems.filter(item => {
     if (userRole === 'GESTOR') {
-      // Menú ultra limpio para el Gestor Móvil (Ocultamos Inventario y Reportes)
-      const rutasPermitidasGestor = ['/dashboard', '/punto-venta', '/productos', '/clientes'];
+      const rutasPermitidasGestor = ['/dashboard', '/punto-venta', '/productos', '/clientes', '/solicitudes'];
       return rutasPermitidasGestor.includes(item.path);
     }
-    // Si es GERENTE, ve todo
     return true; 
   });
 
