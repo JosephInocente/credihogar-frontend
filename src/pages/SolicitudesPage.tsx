@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { 
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
   Button, Chip, Dialog, DialogContent, DialogActions, DialogTitle, TextField, IconButton, 
-  InputAdornment, CircularProgress
+  InputAdornment, CircularProgress, Tooltip
 } from '@mui/material';
 import { 
-  Add as AddIcon, Search as SearchIcon, Visibility as VisibilityIcon, 
+  Add as AddIcon, Search as SearchIcon, 
   CheckCircle, Cancel, Delete as DeleteIcon, Remove as RemoveIcon,
   PictureAsPdf as PictureAsPdfIcon
 } from '@mui/icons-material';
@@ -142,7 +142,7 @@ export const SolicitudesPage = () => {
     } catch (e) { alert("Error al cambiar estado"); }
   };
 
-  // NUEVA FUNCIÓN: Genera un PDF/Imprimible formal para el almacén
+  // Genera un PDF/Imprimible formal para el almacén
   const imprimirSolicitud = () => {
     const ventana = window.open('', '', 'width=800,height=600');
     if (!ventana) return;
@@ -256,7 +256,7 @@ export const SolicitudesPage = () => {
               <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>Fecha</TableCell>
               <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>Items Diferentes</TableCell>
               <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>Estado</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold', color: '#64748b' }}>Detalles</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', color: '#64748b' }}>Documento</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -279,7 +279,20 @@ export const SolicitudesPage = () => {
                     />
                   </TableCell>
                   <TableCell align="center">
-                    <IconButton color="primary" onClick={() => verDetalles(row)}><VisibilityIcon /></IconButton>
+                    <Tooltip title="Ver y Exportar Orden">
+                      <IconButton 
+                        onClick={() => verDetalles(row)}
+                        sx={{ 
+                          bgcolor: '#e0f2fe', 
+                          color: '#0284c7', 
+                          borderRadius: 1, 
+                          p: 1, 
+                          '&:hover': { bgcolor: '#bae6fd' } 
+                        }}
+                      >
+                        <PictureAsPdfIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))
