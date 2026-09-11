@@ -4,14 +4,14 @@ import {
 } from '@mui/material';
 import { 
   TrendingUp, PointOfSale, LocalShipping, AssignmentLate, 
-  Inventory2, CheckCircle, WarningAmber, ArrowUpward, Route as RouteIcon
+  Inventory2, CheckCircle, WarningAmber, ArrowUpward, Route as RouteIcon, Map as MapIcon, InfoOutlined
 } from '@mui/icons-material';
 import { api } from '../api/axiosConfig';
 
 export const DashboardPage = () => {
   const [userRole, setUserRole] = useState('GERENTE');
-  const [viajeGestor, setViajeGestor] = useState<any>(null);
-
+  
+  // ESTADOS DEL GERENTE
   const [stats, setStats] = useState({
     ventasHoy: 0,
     ventasMes: 0,
@@ -20,6 +20,11 @@ export const DashboardPage = () => {
     viajesActivos: 0
   });
   const [alertasStock, setAlertasStock] = useState<any[]>([]);
+
+  // ESTADOS DEL GESTOR
+  const [viajeGestor, setViajeGestor] = useState<any>(null);
+  const [ventasRuta, setVentasRuta] = useState(0);
+  const [inventarioGestor, setInventarioGestor] = useState<any[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -36,6 +41,7 @@ export const DashboardPage = () => {
     }
 
     const cargarDatosDashboard = async () => {
+      // --- LÓGICA DE CARGA PARA EL GESTOR ---
       if (rol === 'GESTOR') {
         try {
           const resViajes = await api.get('/logistica/viajes');
@@ -43,10 +49,27 @@ export const DashboardPage = () => {
             v.gestorId === Number(id) && (v.estado === 'CARGADO' || v.estado === 'EN_RUTA')
           );
           setViajeGestor(miViaje);
+
+          if (miViaje) {
+            // Cargar el inventario de SU camión
+            const idVehiculo = miViaje.vehiculoId || miViaje.vehiculo_id || miViaje.vehiculo?.id;
+            try {
+              const resInv = await api.get(`/logistica/vehiculos/${idVehiculo}/inventario`);
+              setInventarioGestor(resInv.data);
+            } catch (e) { console.error("Error cargando inventario del camión", e); }
+
+            // Cargar las ventas totales de SU viaje actual
+            try {
+              const resVentas = await api.get(`/ventas/viaje/${miViaje.id}`);
+              const totalRuta = resVentas.data.reduce((sum: number, venta: any) => sum + (venta.total || 0), 0);
+              setVentasRuta(totalRuta);
+            } catch (e) { console.error("Error cargando ventas de la ruta", e); }
+          }
         } catch (e) { console.error(e); }
         return; 
       }
 
+      // --- LÓGICA DE CARGA PARA EL GERENTE ---
       try {
         const resVentas = await api.get('/reportes/ventas');
         if (resVentas.data && resVentas.data.length > 0) {
@@ -64,56 +87,214 @@ export const DashboardPage = () => {
     cargarDatosDashboard();
   }, []);
 
+  // =====================================================================
+  // VISTA EXCLUSIVA PARA EL GESTOR DE VENTA
+  // =====================================================================
   if (userRole === 'GESTOR') {
     return (
       <Box sx={{ p: 1 }}>
-        <Typography variant="h4" sx={{ fontWeight: '800', color: '#0f172a', mb: 1 }}>
-          Bienvenido, Gestor de Ruta
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Dirígete a la pestaña "Punto de Venta" para gestionar las transacciones de tu viaje actual.
-        </Typography>
-
-        {!viajeGestor ? (
-          <Paper elevation={0} sx={{ p: 4, borderRadius: 4, textAlign: 'center', bgcolor: '#ffffff', border: '1px solid #e2e8f0', maxWidth: 600 }}>
-            <LocalShipping sx={{ fontSize: 60, color: '#94a3b8', mb: 2 }} />
-            <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#334155', mb: 1 }}>
-              Sin viajes asignados
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: '800', color: '#0f172a', letterSpacing: '-0.5px' }}>
+              Panel Operativo de Ruta
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Actualmente no tienes ningún vehículo cargado ni en ruta a tu cargo. Espera a que Gerencia te asigne una nueva programación.
+              Resumen de tu viaje actual, ventas registradas e inventario a bordo.
             </Typography>
-          </Paper>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#ffffff', px: 2, py: 1, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: viajeGestor ? '#16a34a' : '#94a3b8' }} />
+            <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#1e293b' }}>
+              {viajeGestor ? 'Ruta Activa' : 'En Espera de Asignación'}
+            </Typography>
+          </Box>
+        </Box>
+
+        {!viajeGestor ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
+            <Paper elevation={0} sx={{ p: 5, borderRadius: 4, textAlign: 'center', bgcolor: '#ffffff', border: '1px solid #e2e8f0', maxWidth: 500 }}>
+              <LocalShipping sx={{ fontSize: 60, color: '#94a3b8', mb: 2 }} />
+              <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#334155', mb: 1 }}>
+                Sin viajes asignados
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Actualmente no tienes ningún vehículo cargado ni en ruta a tu cargo. Espera a que Gerencia te asigne una nueva programación para empezar a vender.
+              </Typography>
+            </Paper>
+          </Box>
         ) : (
-          <Paper elevation={0} sx={{ p: 4, borderRadius: 4, bgcolor: '#0a348a', color: 'white', maxWidth: 600 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-              <RouteIcon sx={{ fontSize: 40, color: '#60a5fa' }} />
-              <Box>
-                <Typography variant="caption" sx={{ color: '#93c5fd', fontWeight: 'bold' }}>VIAJE ACTIVO</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 'bold' }}>TRIP-{viajeGestor.id}</Typography>
-              </Box>
+          <>
+            {/* 4 TARJETAS DE MÉTRICAS DEL VIAJE */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 3, mb: 3 }}>
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>Ventas en Ruta</Typography>
+                    <Typography variant="h4" sx={{ fontWeight: '900', color: '#0f172a', mt: 0.5 }}>
+                      S/ {ventasRuta.toFixed(2)}
+                    </Typography>
+                  </Box>
+                  <Avatar sx={{ bgcolor: '#dcfce7', color: '#16a34a', width: 48, height: 48, borderRadius: 3 }}>
+                    <PointOfSale />
+                  </Avatar>
+                </Box>
+                <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#16a34a' }}>Dinero a rendir en liquidación</Typography>
+              </Paper>
+
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>Destino / Zona</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: '900', color: '#0f172a', mt: 0.5, lineHeight: 1.2 }}>
+                      {viajeGestor.destino}
+                    </Typography>
+                  </Box>
+                  <Avatar sx={{ bgcolor: '#eff6ff', color: '#0284c7', width: 48, height: 48, borderRadius: 3 }}>
+                    <MapIcon />
+                  </Avatar>
+                </Box>
+                <Typography variant="caption" color="text.secondary">Ruta asignada</Typography>
+              </Paper>
+
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>Vehículo</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: '900', color: '#0f172a', mt: 0.5 }}>
+                      {viajeGestor.vehiculoPlaca || 'No registrada'}
+                    </Typography>
+                  </Box>
+                  <Avatar sx={{ bgcolor: '#fef3c7', color: '#d97706', width: 48, height: 48, borderRadius: 3 }}>
+                    <LocalShipping />
+                  </Avatar>
+                </Box>
+                <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#d97706' }}>Unidad de transporte</Typography>
+              </Paper>
+
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>Estado Operativo</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: '900', color: '#0f172a', mt: 0.5 }}>
+                      {viajeGestor.estado}
+                    </Typography>
+                  </Box>
+                  <Avatar sx={{ bgcolor: '#f3e8ff', color: '#9333ea', width: 48, height: 48, borderRadius: 3 }}>
+                    <RouteIcon />
+                  </Avatar>
+                </Box>
+                <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#9333ea' }}>Viaje: TRIP-{viajeGestor.id}</Typography>
+              </Paper>
             </Box>
-            <Divider sx={{ borderColor: 'rgba(255,255,255,0.2)', mb: 3 }} />
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography sx={{ color: '#cbd5e1' }}>Destino Asignado:</Typography>
-                <Typography sx={{ fontWeight: 'bold' }}>{viajeGestor.destino}</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography sx={{ color: '#cbd5e1' }}>Placa del Vehículo:</Typography>
-                <Typography sx={{ fontWeight: 'bold' }}>{viajeGestor.vehiculoPlaca || 'No registrada'}</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography sx={{ color: '#cbd5e1' }}>Estado Operativo:</Typography>
-                <Chip label={viajeGestor.estado} sx={{ bgcolor: '#16a34a', color: 'white', fontWeight: 'bold' }} size="small" />
-              </Box>
+
+            {/* TABLA DE INVENTARIO Y RESUMEN LATERAL */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '8fr 4fr' }, gap: 3 }}>
+              
+              <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: '#ffffff', minHeight: '380px' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                  <Inventory2 sx={{ color: '#0a348a' }} />
+                  <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#0f172a' }}>
+                    Inventario a Bordo (Camión)
+                  </Typography>
+                </Box>
+                <Divider sx={{ mb: 3 }} />
+
+                {inventarioGestor.length === 0 ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, textAlign: 'center' }}>
+                    <Avatar sx={{ bgcolor: '#f1f5f9', color: '#94a3b8', width: 64, height: 64, mb: 2 }}>
+                      <WarningAmber sx={{ fontSize: 36 }} />
+                    </Avatar>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#1e293b' }}>
+                      Camión Vacío
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ maxWidth: '400px', mt: 0.5 }}>
+                      El inventario de este camión está en cero. Si acabas de iniciar el viaje, verifica si el almacén ya confirmó la carga.
+                    </Typography>
+                  </Box>
+                ) : (
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                          <TableCell sx={{ fontWeight: 'bold', color: '#475569' }}>Producto / Presentación</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 'bold', color: '#475569' }}>Precio Base</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 'bold', color: '#475569' }}>Stock Disponible</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 'bold', color: '#475569' }}>Estado</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {inventarioGestor.map((item, idx) => (
+                          <TableRow key={idx} sx={{ '&:hover': { bgcolor: '#f1f5f9' } }}>
+                            <TableCell sx={{ fontWeight: 'bold' }}>
+                              {item.producto_nombre}
+                              <Box component="span" sx={{ display: 'block', fontSize: '0.75rem', color: 'text.secondary', fontWeight: 'normal' }}>
+                                {item.presentacion_nombre}
+                              </Box>
+                            </TableCell>
+                            <TableCell align="center" sx={{ fontWeight: 'bold', color: '#0a348a' }}>
+                              S/ {Number(item.precio_venta).toFixed(2)}
+                            </TableCell>
+                            <TableCell align="center" sx={{ fontWeight: '900', color: item.cantidad <= 2 ? '#d32f2f' : '#1e293b', fontSize: '1rem' }}>
+                              {item.cantidad}
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip 
+                                label={item.cantidad === 0 ? 'AGOTADO' : (item.cantidad <= 2 ? 'POR AGOTARSE' : 'DISPONIBLE')} 
+                                color={item.cantidad === 0 ? 'error' : (item.cantidad <= 2 ? 'warning' : 'success')} 
+                                size="small" 
+                                sx={{ fontWeight: 'bold', borderRadius: 1 }} 
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </Paper>
+
+              <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: '#0a348a', color: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                    <InfoOutlined sx={{ color: '#60a5fa' }} />
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                      Instrucciones de Ruta
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, mb: 4 }}>
+                    Eres responsable del inventario mostrado en la tabla adjunta y del recaudo de las ventas realizadas.
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Paper elevation={0} sx={{ p: 2, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 'bold' }}>CANTIDAD DE PRODUCTOS DISTINTOS</Typography>
+                      <Typography variant="h5" sx={{ fontWeight: '900', color: '#ffffff', mt: 0.5 }}>{inventarioGestor.length}</Typography>
+                    </Paper>
+
+                    <Paper elevation={0} sx={{ p: 2, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 'bold' }}>FECHA DE PROGRAMACIÓN</Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#93c5fd', mt: 0.5 }}>{viajeGestor.fecha}</Typography>
+                    </Paper>
+                  </Box>
+                </Box>
+
+                <Box sx={{ mt: 4, pt: 2, borderTop: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                    Módulo de Gestor • CREDI HOGAR PLUS
+                  </Typography>
+                </Box>
+              </Paper>
+
             </Box>
-          </Paper>
+          </>
         )}
       </Box>
     );
   }
 
+  // =====================================================================
+  // VISTA GLOBAL PARA EL GERENTE (Se mantiene intacta)
+  // =====================================================================
   return (
     <Box sx={{ p: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
