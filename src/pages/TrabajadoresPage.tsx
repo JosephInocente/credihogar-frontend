@@ -6,7 +6,8 @@ import {
 } from '@mui/material';
 import { 
   Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, 
-  Badge as BadgeIcon, Close as CloseIcon, Search as SearchIcon 
+  Badge as BadgeIcon, Close as CloseIcon, Search as SearchIcon,
+  Visibility, VisibilityOff // <-- NUEVOS ICONOS PARA LA CONTRASEÑA
 } from '@mui/icons-material';
 import { api } from '../api/axiosConfig';
 
@@ -19,15 +20,18 @@ export const TrabajadoresPage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<number | null>(null);
   
+  // NUEVO ESTADO PARA MOSTRAR/OCULTAR CONTRASEÑA
+  const [showPassword, setShowPassword] = useState(false);
+  
+  // SE AGREGÓ EL CAMPO 'password' AL FORMULARIO
   const [form, setForm] = useState({
-    dni: '', nombre: '', apellidos: '', username: '', email: '', telefono: '', rol: 'TRABAJADOR', estado: 'ACTIVO'
+    dni: '', nombre: '', apellidos: '', username: '', email: '', telefono: '', rol: 'TRABAJADOR', estado: 'ACTIVO', password: ''
   });
 
   const cargarUsuarios = async () => {
     try {
       setLoading(true);
       const response = await api.get('/usuarios');
-      // AHORA MOSTRAMOS A TRABAJADORES Y GESTORES
       const personalOperativo = response.data.filter((u: any) => u.rol === 'TRABAJADOR' || u.rol === 'GESTOR');
       setUsuarios(personalOperativo);
     } catch (error) {
@@ -79,16 +83,18 @@ export const TrabajadoresPage = () => {
 
   const abrirModalNuevo = () => {
     setIsEditing(false); setUsuarioSeleccionado(null);
-    setForm({ dni: '', nombre: '', apellidos: '', username: '', email: '', telefono: '', rol: 'TRABAJADOR', estado: 'ACTIVO' });
+    setShowPassword(false);
+    setForm({ dni: '', nombre: '', apellidos: '', username: '', email: '', telefono: '', rol: 'TRABAJADOR', estado: 'ACTIVO', password: '' });
     setOpenModal(true);
   };
 
   const abrirModalEditar = (u: any) => {
     setIsEditing(true); setUsuarioSeleccionado(u.id);
+    setShowPassword(false);
     setForm({ 
       dni: u.dni || '', nombre: u.nombre || '', apellidos: u.apellidos || '', 
       username: u.username || '', email: u.email || '', telefono: u.telefono || '', 
-      rol: u.rol || 'TRABAJADOR', estado: u.estado || 'ACTIVO' 
+      rol: u.rol || 'TRABAJADOR', estado: u.estado || 'ACTIVO', password: '' // Lo dejamos vacío por seguridad
     });
     setOpenModal(true);
   };
@@ -97,13 +103,21 @@ export const TrabajadoresPage = () => {
     if (!form.dni || !form.nombre || !form.username || !form.rol) {
       alert("DNI, Nombre, Usuario y Rol son obligatorios"); return;
     }
+
+    // LÓGICA DE CONTRASEÑA
+    const payload = { ...form };
+    if (!isEditing && !payload.password) {
+      // Si es nuevo y no escribieron clave, usamos el DNI
+      payload.password = payload.dni;
+    }
+
     try {
       if (isEditing && usuarioSeleccionado) {
-        await api.put(`/usuarios/${usuarioSeleccionado}`, form);
+        await api.put(`/usuarios/${usuarioSeleccionado}`, payload);
         alert("✅ Personal actualizado exitosamente.");
       } else {
-        await api.post('/usuarios', form);
-        alert(`✅ ${form.rol} registrado. La contraseña temporal es su número de DNI.`);
+        await api.post('/usuarios', payload);
+        alert(`✅ ${form.rol} registrado exitosamente.`);
       }
       setOpenModal(false);
       cargarUsuarios();
@@ -238,7 +252,6 @@ export const TrabajadoresPage = () => {
               <TextField label="Email (Opcional)" fullWidth value={form.email} onChange={e => setForm({...form, email: e.target.value})} slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2 } } }} />
             </Box>
 
-            {/* NUEVO: SELECCIÓN DE ROL */}
             <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
               <TextField select label="Rol Asignado" fullWidth value={form.rol} onChange={e => setForm({...form, rol: e.target.value})} slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2 } } }}>
                 <MenuItem value="TRABAJADOR">CHOFER (TRABAJADOR)</MenuItem>
@@ -252,11 +265,30 @@ export const TrabajadoresPage = () => {
               )}
             </Box>
 
-            {!isEditing && (
-              <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
-                * La contraseña inicial por defecto será el mismo número de DNI.
-              </Typography>
-            )}
+            {/* NUEVO: CAMPO DE CONTRASEÑA */}
+            <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField 
+                label={isEditing ? "Nueva Contraseña (Opcional)" : "Contraseña"}
+                fullWidth 
+                type={showPassword ? 'text' : 'password'}
+                value={form.password} 
+                onChange={e => setForm({...form, password: e.target.value})}
+                placeholder={isEditing ? "Dejar en blanco para mantener la actual" : "Si dejas vacío, será el DNI"}
+                slotProps={{ 
+                  input: { 
+                    sx: { bgcolor: '#f8fafc', borderRadius: 2 },
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  } 
+                }} 
+              />
+            </Box>
+
           </Box>
         </DialogContent>
 
