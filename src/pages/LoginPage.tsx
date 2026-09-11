@@ -33,7 +33,6 @@ export const LoginPage = () => {
       const token = response.data.token;
       localStorage.setItem('token', token);
       
-      // ¡CLAVE! Guardamos el usuario escrito (Ej: @joseph) para buscar su camión
       localStorage.setItem('username', username);
       
       // DECODIFICAR EL TOKEN JWT PARA VER QUIÉN ES Y QUÉ ROL TIENE
@@ -44,18 +43,26 @@ export const LoginPage = () => {
       const userRole = payload.rol || payload.role || payload.authorities || 'GERENTE';
       const userId = payload.id || payload.usuarioId || 2; 
 
-      localStorage.setItem('usuarioId', userId.toString());
-
-      // REDIRECCIÓN DURA (F5 AUTOMÁTICO) PARA EVITAR PANTALLA BLANCA
+      // BLOQUEO ESTRICTO: Si el rol es TRABAJADOR (Chofer), le negamos la entrada
       if (userRole === 'TRABAJADOR' || userRole === 'ROLE_TRABAJADOR' || (Array.isArray(userRole) && userRole.includes('TRABAJADOR'))) {
-        window.location.href = '/ventas-trabajador';
-      } else {
-        window.location.href = '/dashboard';
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        localStorage.removeItem('usuarioId');
+        
+        setError('Acceso Denegado: El perfil de Chofer es netamente logístico y no tiene acceso a la plataforma.');
+        setIsLoading(false);
+        return; // Rompemos la ejecución para que no pase al dashboard
       }
+
+      // Si es GERENTE o GESTOR, lo dejamos entrar y guardamos su ID
+      localStorage.setItem('usuarioId', userId.toString());
+      
+      // REDIRECCIÓN DURA (F5 AUTOMÁTICO) HACIA EL PANEL
+      window.location.href = '/dashboard';
       
     } catch (err) {
       setError('Credenciales incorrectas o servidor desconectado');
-      setIsLoading(false); // Apagamos el spinner solo si hay error. Si hay éxito, sigue girando hasta que cambie la página.
+      setIsLoading(false); 
     } 
   };
 

@@ -5,7 +5,6 @@ import { InventarioPage } from './pages/InventarioPage';
 import { ClientesPage } from './pages/ClientesPage';
 import { FacturacionPage } from './pages/FacturacionPage';
 import { VehiculosViajesPage } from './pages/VehiculosViajesPage';
-import { VentasTrabajadorPage } from './pages/VentasTrabajadorPage';
 import { TrabajadoresPage } from './pages/TrabajadoresPage';
 import { ProductosPage } from './pages/ProductosPage';
 import { PuntoDeVentaPage } from './pages/PuntoDeVentaPage';
@@ -17,7 +16,6 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginPage />} />
-        <Route path="/ventas-trabajador" element={<VentasTrabajadorPage />} />
         
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
