@@ -5,7 +5,7 @@ import {
   InputAdornment, CircularProgress, Tooltip
 } from '@mui/material';
 import { 
-  Add as AddIcon, Search as SearchIcon, 
+  Add as AddIcon, Search as SearchIcon, Visibility as VisibilityIcon, 
   CheckCircle, Cancel, Delete as DeleteIcon, Remove as RemoveIcon,
   PictureAsPdf as PictureAsPdfIcon
 } from '@mui/icons-material';
@@ -60,7 +60,7 @@ export const SolicitudesPage = () => {
         setSolicitudes(resSol.data);
       } catch (e) { console.error("Error cargando solicitudes", e); }
 
-      // Cargar catálogo principal para hacer el pedido (El Gestor pide lo que hay en Almacén #1)
+      // Cargar catálogo principal
       try {
         const resProd = await api.get('/pos/productos?usuarioId=1&rol=GERENTE');
         setProductosAlmacen(resProd.data);
@@ -123,7 +123,7 @@ export const SolicitudesPage = () => {
     p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || p.sku.toLowerCase().includes(busqueda.toLowerCase())
   );
 
-  // --- LÓGICA GERENTE: VER, ATENDER E IMPRIMIR SOLICITUDES ---
+  // --- LÓGICA GERENTE: VER Y CAMBIAR ESTADO ---
   const verDetalles = async (sol: any) => {
     setSolicitudSeleccionada(sol);
     setOpenDetalles(true);
@@ -142,91 +142,106 @@ export const SolicitudesPage = () => {
     } catch (e) { alert("Error al cambiar estado"); }
   };
 
-  // Genera un PDF/Imprimible formal para el almacén
-  const imprimirSolicitud = () => {
+  // --- LÓGICA GERENTE: GENERAR PDF DIRECTO A OTRA PESTAÑA ---
+  const generarPDFDirecto = async (sol: any) => {
+    // Abrir ventana primero para que el navegador no bloquee el pop-up
     const ventana = window.open('', '', 'width=800,height=600');
-    if (!ventana) return;
+    if (!ventana) {
+      alert("Por favor, permite las ventanas emergentes (pop-ups) en tu navegador.");
+      return;
+    }
+    ventana.document.write('<div style="font-family: sans-serif; padding: 20px;">Generando documento PDF...</div>');
 
-    const fechaSolicitud = solicitudSeleccionada?.fecha_hora 
-      ? new Date(solicitudSeleccionada.fecha_hora).toLocaleString('es-PE') 
-      : '--/--/----';
+    try {
+      // Traer los detalles de la solicitud de la BD
+      const res = await api.get(`/solicitudes/${sol.id}/detalles`);
+      const detallesPDF = res.data;
 
-    const htmlContent = `
-      <div class="header">
-        <h1>CREDI HOGAR PLUS</h1>
-        <h2>Orden de Despacho y Reabastecimiento</h2>
-      </div>
-      
-      <div class="info-box">
-        <p><strong>N° de Requerimiento:</strong> REQ-${solicitudSeleccionada?.id}</p>
-        <p><strong>Gestor Solicitante:</strong> ${solicitudSeleccionada?.gestor?.toUpperCase()}</p>
-        <p><strong>Fecha de Emisión:</strong> ${fechaSolicitud}</p>
-        <p><strong>Estado Actual:</strong> ${solicitudSeleccionada?.estado}</p>
-        <p><strong>Notas del Gestor:</strong> ${solicitudSeleccionada?.notas || 'Sin anotaciones adicionales.'}</p>
-      </div>
+      const fechaSolicitud = sol.fecha_hora 
+        ? new Date(sol.fecha_hora).toLocaleString('es-PE') 
+        : '--/--/----';
 
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 10%;">N°</th>
-            <th style="width: 50%;">Producto</th>
-            <th style="width: 20%;">Presentación</th>
-            <th style="width: 20%; text-align: center;">Cant. Solicitada</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${detallesSolicitud.map((item, index) => `
+      const htmlContent = `
+        <div class="header">
+          <h1>CREDI HOGAR PLUS</h1>
+          <h2>Orden de Despacho y Reabastecimiento</h2>
+        </div>
+        
+        <div class="info-box">
+          <p><strong>N° de Requerimiento:</strong> REQ-${sol.id}</p>
+          <p><strong>Gestor Solicitante:</strong> ${sol.gestor?.toUpperCase()}</p>
+          <p><strong>Fecha de Emisión:</strong> ${fechaSolicitud}</p>
+          <p><strong>Estado Actual:</strong> ${sol.estado}</p>
+          <p><strong>Notas del Gestor:</strong> ${sol.notas || 'Sin anotaciones adicionales.'}</p>
+        </div>
+
+        <table>
+          <thead>
             <tr>
-              <td style="text-align: center;">${index + 1}</td>
-              <td>${item.producto}</td>
-              <td>${item.presentacion}</td>
-              <td style="text-align: center; font-weight: bold; font-size: 16px;">${item.cantidad}</td>
+              <th style="width: 10%;">N°</th>
+              <th style="width: 50%;">Producto</th>
+              <th style="width: 20%;">Presentación</th>
+              <th style="width: 20%; text-align: center;">Cant. Solicitada</th>
             </tr>
-          `).join('')}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            ${detallesPDF.map((item: any, index: number) => `
+              <tr>
+                <td style="text-align: center;">${index + 1}</td>
+                <td>${item.producto}</td>
+                <td>${item.presentacion}</td>
+                <td style="text-align: center; font-weight: bold; font-size: 16px;">${item.cantidad}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
 
-      <div class="footer">
-        <p>Documento de uso interno - Generado el ${new Date().toLocaleString('es-PE')}</p>
-        <div class="firmas">
-          <div>
-            ________________________________<br>
-            <strong>Firma del Gestor</strong><br>
-            Recibí conforme
-          </div>
-          <div>
-            ________________________________<br>
-            <strong>Firma de Almacén</strong><br>
-            Despachado por
+        <div class="footer">
+          <p>Documento de uso interno - Generado el ${new Date().toLocaleString('es-PE')}</p>
+          <div class="firmas">
+            <div>
+              ________________________________<br>
+              <strong>Firma del Gestor</strong><br>
+              Recibí conforme
+            </div>
+            <div>
+              ________________________________<br>
+              <strong>Firma de Almacén</strong><br>
+              Despachado por
+            </div>
           </div>
         </div>
-      </div>
-    `;
+      `;
 
-    ventana.document.body.innerHTML = htmlContent;
+      ventana.document.body.innerHTML = htmlContent;
 
-    const style = ventana.document.createElement('style');
-    style.textContent = `
-      body { font-family: 'Arial', sans-serif; padding: 25px; color: #333; }
-      .header { text-align: center; border-bottom: 2px solid #0a348a; padding-bottom: 15px; margin-bottom: 25px; }
-      .header h1 { margin: 0; color: #0a348a; font-size: 26px; }
-      .header h2 { margin: 5px 0 0 0; color: #475569; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
-      .info-box { border: 1px solid #cbd5e1; padding: 15px 20px; margin-bottom: 25px; border-radius: 8px; background: #f8fafc; }
-      .info-box p { margin: 8px 0; font-size: 14px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-      th, td { border: 1px solid #cbd5e1; padding: 12px; }
-      th { background-color: #0a348a; color: white; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #64748b; }
-      .firmas { display: flex; justify-content: space-around; margin-top: 60px; font-size: 14px; color: #333; }
-    `;
-    
-    ventana.document.head.appendChild(style);
-    ventana.document.title = `Solicitud_Stock_REQ_${solicitudSeleccionada?.id}`;
+      const style = ventana.document.createElement('style');
+      style.textContent = `
+        body { font-family: 'Arial', sans-serif; padding: 25px; color: #333; }
+        .header { text-align: center; border-bottom: 2px solid #0a348a; padding-bottom: 15px; margin-bottom: 25px; }
+        .header h1 { margin: 0; color: #0a348a; font-size: 26px; }
+        .header h2 { margin: 5px 0 0 0; color: #475569; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
+        .info-box { border: 1px solid #cbd5e1; padding: 15px 20px; margin-bottom: 25px; border-radius: 8px; background: #f8fafc; }
+        .info-box p { margin: 8px 0; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { border: 1px solid #cbd5e1; padding: 12px; }
+        th { background-color: #0a348a; color: white; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #64748b; }
+        .firmas { display: flex; justify-content: space-around; margin-top: 60px; font-size: 14px; color: #333; }
+      `;
+      
+      ventana.document.head.appendChild(style);
+      ventana.document.title = `Solicitud_Stock_REQ_${sol.id}`;
 
-    setTimeout(() => {
-      ventana.print();
+      setTimeout(() => {
+        ventana.print();
+        ventana.close();
+      }, 250);
+
+    } catch (error) {
       ventana.close();
-    }, 250);
+      alert("Error al cargar los detalles para el PDF");
+    }
   };
 
   return (
@@ -256,7 +271,7 @@ export const SolicitudesPage = () => {
               <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>Fecha</TableCell>
               <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>Items Diferentes</TableCell>
               <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>Estado</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold', color: '#64748b' }}>Documento</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', color: '#64748b' }}>Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -279,20 +294,29 @@ export const SolicitudesPage = () => {
                     />
                   </TableCell>
                   <TableCell align="center">
-                    <Tooltip title="Ver y Exportar Orden">
-                      <IconButton 
-                        onClick={() => verDetalles(row)}
-                        sx={{ 
-                          bgcolor: '#e0f2fe', 
-                          color: '#0284c7', 
-                          borderRadius: 1, 
-                          p: 1, 
-                          '&:hover': { bgcolor: '#bae6fd' } 
-                        }}
-                      >
-                        <PictureAsPdfIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                      {/* BOTÓN OJITO PARA VER/APROBAR/RECHAZAR */}
+                      <Tooltip title="Ver Detalles y Atender">
+                        <IconButton 
+                          onClick={() => verDetalles(row)}
+                          sx={{ bgcolor: '#f1f5f9', color: '#64748b', borderRadius: 1, p: 1, '&:hover': { bgcolor: '#e2e8f0' } }}
+                        >
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      
+                      {/* BOTÓN CELESTE PARA PDF DIRECTO (SOLO GERENTE) */}
+                      {userRole === 'GERENTE' && (
+                        <Tooltip title="Generar PDF (Orden de Despacho)">
+                          <IconButton 
+                            onClick={() => generarPDFDirecto(row)}
+                            sx={{ bgcolor: '#e0f2fe', color: '#0284c7', borderRadius: 1, p: 1, '&:hover': { bgcolor: '#bae6fd' } }}
+                          >
+                            <PictureAsPdfIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))
@@ -429,27 +453,15 @@ export const SolicitudesPage = () => {
             </Table>
           </TableContainer>
         </DialogContent>
-        
-        {/* FOOTER DEL MODAL: PDF A LA IZQUIERDA, BOTONES A LA DERECHA */}
-        <DialogActions sx={{ p: 3, justifyContent: 'space-between', bgcolor: '#f8fafc' }}>
-          {userRole === 'GERENTE' ? (
-            <Button variant="outlined" color="primary" startIcon={<PictureAsPdfIcon />} onClick={imprimirSolicitud} sx={{ fontWeight: 'bold', textTransform: 'none' }}>
-              Exportar a PDF
-            </Button>
+        <DialogActions sx={{ p: 3, justifyContent: userRole === 'GERENTE' && solicitudSeleccionada?.estado === 'PENDIENTE' ? 'space-between' : 'center', bgcolor: '#f8fafc' }}>
+          {userRole === 'GERENTE' && solicitudSeleccionada?.estado === 'PENDIENTE' ? (
+            <>
+              <Button variant="outlined" color="error" startIcon={<Cancel />} onClick={() => cambiarEstado(solicitudSeleccionada.id, 'RECHAZADA')} sx={{ fontWeight: 'bold', textTransform: 'none' }}>Rechazar Pedido</Button>
+              <Button variant="contained" color="success" startIcon={<CheckCircle />} onClick={() => cambiarEstado(solicitudSeleccionada.id, 'ATENDIDA')} sx={{ fontWeight: 'bold', textTransform: 'none' }}>Aprobar (Atender)</Button>
+            </>
           ) : (
-            <Box /> // Caja vacía para mantener alineación del Gestor
+            <Button onClick={() => setOpenDetalles(false)} variant="outlined" sx={{ fontWeight: 'bold', textTransform: 'none' }}>Cerrar</Button>
           )}
-
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            {userRole === 'GERENTE' && solicitudSeleccionada?.estado === 'PENDIENTE' ? (
-              <>
-                <Button variant="outlined" color="error" startIcon={<Cancel />} onClick={() => cambiarEstado(solicitudSeleccionada.id, 'RECHAZADA')} sx={{ fontWeight: 'bold', textTransform: 'none' }}>Rechazar Pedido</Button>
-                <Button variant="contained" color="success" startIcon={<CheckCircle />} onClick={() => cambiarEstado(solicitudSeleccionada.id, 'ATENDIDA')} sx={{ fontWeight: 'bold', textTransform: 'none' }}>Aprobar (Atender)</Button>
-              </>
-            ) : (
-              <Button onClick={() => setOpenDetalles(false)} variant="outlined" sx={{ fontWeight: 'bold', textTransform: 'none' }}>Cerrar</Button>
-            )}
-          </Box>
         </DialogActions>
       </Dialog>
     </Box>
