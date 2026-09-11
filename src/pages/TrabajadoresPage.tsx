@@ -7,7 +7,7 @@ import {
 import { 
   Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, 
   Badge as BadgeIcon, Close as CloseIcon, Search as SearchIcon,
-  Visibility, VisibilityOff // <-- NUEVOS ICONOS PARA LA CONTRASEÑA
+  Visibility, VisibilityOff 
 } from '@mui/icons-material';
 import { api } from '../api/axiosConfig';
 
@@ -20,10 +20,8 @@ export const TrabajadoresPage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<number | null>(null);
   
-  // NUEVO ESTADO PARA MOSTRAR/OCULTAR CONTRASEÑA
   const [showPassword, setShowPassword] = useState(false);
   
-  // SE AGREGÓ EL CAMPO 'password' AL FORMULARIO
   const [form, setForm] = useState({
     dni: '', nombre: '', apellidos: '', username: '', email: '', telefono: '', rol: 'TRABAJADOR', estado: 'ACTIVO', password: ''
   });
@@ -94,7 +92,7 @@ export const TrabajadoresPage = () => {
     setForm({ 
       dni: u.dni || '', nombre: u.nombre || '', apellidos: u.apellidos || '', 
       username: u.username || '', email: u.email || '', telefono: u.telefono || '', 
-      rol: u.rol || 'TRABAJADOR', estado: u.estado || 'ACTIVO', password: '' // Lo dejamos vacío por seguridad
+      rol: u.rol || 'TRABAJADOR', estado: u.estado || 'ACTIVO', password: '' 
     });
     setOpenModal(true);
   };
@@ -104,10 +102,8 @@ export const TrabajadoresPage = () => {
       alert("DNI, Nombre, Usuario y Rol son obligatorios"); return;
     }
 
-    // LÓGICA DE CONTRASEÑA
     const payload = { ...form };
     if (!isEditing && !payload.password) {
-      // Si es nuevo y no escribieron clave, usamos el DNI
       payload.password = payload.dni;
     }
 
@@ -137,6 +133,9 @@ export const TrabajadoresPage = () => {
       }
     }
   };
+
+  // Estilo global para los campos de texto para evitar el bug visual
+  const textFieldStyles = { '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc', borderRadius: 2 } };
 
   return (
     <Box>
@@ -226,9 +225,9 @@ export const TrabajadoresPage = () => {
                 value={form.dni} 
                 onChange={e => setForm({...form, dni: e.target.value})} 
                 onKeyDown={(e) => e.key === 'Enter' && buscarReniec()} 
+                sx={textFieldStyles}
                 slotProps={{ 
                   input: { 
-                    sx: { bgcolor: '#f8fafc', borderRadius: 2 },
                     endAdornment: (
                       <InputAdornment position="end">
                         <IconButton onClick={buscarReniec} disabled={buscandoDni} color="primary">
@@ -239,44 +238,44 @@ export const TrabajadoresPage = () => {
                   } 
                 }} 
               />
-              <TextField label="Usuario de Ingreso" fullWidth value={form.username} onChange={e => setForm({...form, username: e.target.value})} slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2 } } }} />
+              <TextField label="Usuario de Ingreso" fullWidth value={form.username} onChange={e => setForm({...form, username: e.target.value})} sx={textFieldStyles} />
             </Box>
 
             <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-              <TextField label="Nombres" fullWidth value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2 } } }} />
-              <TextField label="Apellidos" fullWidth value={form.apellidos} onChange={e => setForm({...form, apellidos: e.target.value})} slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2 } } }} />
+              <TextField label="Nombres" fullWidth value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} sx={textFieldStyles} />
+              <TextField label="Apellidos" fullWidth value={form.apellidos} onChange={e => setForm({...form, apellidos: e.target.value})} sx={textFieldStyles} />
             </Box>
 
             <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-              <TextField label="Teléfono" fullWidth value={form.telefono} onChange={e => setForm({...form, telefono: e.target.value})} slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2 } } }} />
-              <TextField label="Email (Opcional)" fullWidth value={form.email} onChange={e => setForm({...form, email: e.target.value})} slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2 } } }} />
+              <TextField label="Teléfono" fullWidth value={form.telefono} onChange={e => setForm({...form, telefono: e.target.value})} sx={textFieldStyles} />
+              <TextField label="Email (Opcional)" fullWidth value={form.email} onChange={e => setForm({...form, email: e.target.value})} sx={textFieldStyles} />
             </Box>
 
             <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-              <TextField select label="Rol Asignado" fullWidth value={form.rol} onChange={e => setForm({...form, rol: e.target.value})} slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2 } } }}>
+              <TextField select label="Rol Asignado" fullWidth value={form.rol} onChange={e => setForm({...form, rol: e.target.value})} sx={textFieldStyles}>
                 <MenuItem value="TRABAJADOR">CHOFER (TRABAJADOR)</MenuItem>
                 <MenuItem value="GESTOR">GESTOR DE VENTA</MenuItem>
               </TextField>
               {isEditing && (
-                <TextField select label="Estado" fullWidth value={form.estado} onChange={e => setForm({...form, estado: e.target.value})} slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2 } } }}>
+                <TextField select label="Estado" fullWidth value={form.estado} onChange={e => setForm({...form, estado: e.target.value})} sx={textFieldStyles}>
                   <MenuItem value="ACTIVO">ACTIVO</MenuItem>
                   <MenuItem value="INACTIVO">INACTIVO (Suspendido)</MenuItem>
                 </TextField>
               )}
             </Box>
 
-            {/* NUEVO: CAMPO DE CONTRASEÑA */}
             <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
               <TextField 
                 label={isEditing ? "Nueva Contraseña (Opcional)" : "Contraseña"}
                 fullWidth 
+                autoComplete="new-password"
                 type={showPassword ? 'text' : 'password'}
                 value={form.password} 
                 onChange={e => setForm({...form, password: e.target.value})}
                 placeholder={isEditing ? "Dejar en blanco para mantener la actual" : "Si dejas vacío, será el DNI"}
+                sx={textFieldStyles}
                 slotProps={{ 
                   input: { 
-                    sx: { bgcolor: '#f8fafc', borderRadius: 2 },
                     endAdornment: (
                       <InputAdornment position="end">
                         <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
