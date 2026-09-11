@@ -7,10 +7,9 @@ import {
 import { 
   Menu as MenuIcon, Dashboard, Inventory, LocalShipping, 
   People, Receipt, Logout, Badge as BadgeIcon, PointOfSale,
-  Assessment as AssessmentIcon
+  Assessment as AssessmentIcon, LocalOffer
 } from '@mui/icons-material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LocalOffer } from '@mui/icons-material';
 import logoCredi from '../assets/LOGO_CREDI.png';
 
 const drawerWidth = 260;
@@ -18,20 +17,19 @@ const drawerWidth = 260;
 export const Layout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userRole, setUserRole] = useState('GERENTE');
-  const [userName, setUserName] = useState('G'); // Para la inicial del Avatar
+  const [userName, setUserName] = useState('G'); 
 
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    // NUEVA LÓGICA: Leemos el Token para saber quién inició sesión
     const token = localStorage.getItem('token');
     if (token) {
       try {
         const payloadBase64 = token.split('.')[1];
         const decodedJson = atob(payloadBase64);
         const payload = JSON.parse(decodedJson);
-        setUserRole(payload.rol || 'GERENTE');
+        setUserRole(payload.rol || payload.role || 'GERENTE');
         
         const usernameFull = payload.sub || payload.username || 'Usuario';
         setUserName(usernameFull.charAt(0).toUpperCase());
@@ -47,6 +45,8 @@ export const Layout = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    localStorage.removeItem('usuarioId');
     navigate('/');
   };
 
@@ -65,7 +65,8 @@ export const Layout = () => {
   // FILTRO INTELIGENTE DE VISTAS POR ROL
   const menuItems = allMenuItems.filter(item => {
     if (userRole === 'GESTOR') {
-      const rutasPermitidasGestor = ['/dashboard', '/punto-venta', '/productos', '/inventario', '/clientes', '/reportes'];
+      // Menú ultra limpio para el Gestor Móvil (Ocultamos Inventario y Reportes)
+      const rutasPermitidasGestor = ['/dashboard', '/punto-venta', '/productos', '/clientes'];
       return rutasPermitidasGestor.includes(item.path);
     }
     // Si es GERENTE, ve todo

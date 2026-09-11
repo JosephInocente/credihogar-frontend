@@ -12,26 +12,50 @@ export const ClientesPage = () => {
   const [historial, setHistorial] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Estado de Sesión
+  const [userRole, setUserRole] = useState('GERENTE');
+
   // Estados para el Modal del Ticket
   const [openTicket, setOpenTicket] = useState(false);
   const [ticketData, setTicketData] = useState<any>(null);
   const [detallesTicket, setDetallesTicket] = useState<any[]>([]);
   const [loadingTicket, setLoadingTicket] = useState(false);
 
-  // Cargar lista de historial
-  const cargarHistorial = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get('/historial-ventas');
-      setHistorial(response.data);
-    } catch (error) {
-      console.error("Error al cargar historial de ventas:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    let rol = 'GERENTE';
+
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        rol = payload.rol || payload.role || 'GERENTE';
+        setUserRole(rol);
+      } catch (e) { console.error(e); }
+    }
+
+    const cargarHistorial = async () => {
+      setLoading(true);
+      try {
+        let currentId: number | null = null;
+
+        // 1. Resolver el ID real si es GESTOR
+        if (rol === 'GESTOR') {
+          const usernameLogueado = localStorage.getItem('username');
+          const resUsuarios = await api.get('/usuarios');
+          const usuarioReal = resUsuarios.data.find((u: any) => u.username === usernameLogueado);
+          currentId = usuarioReal ? usuarioReal.id : 2;
+        }
+
+        // 2. Pedir historial con parámetros de rol
+        const response = await api.get(`/historial-ventas?usuarioId=${currentId || ''}&rol=${rol}`);
+        setHistorial(response.data);
+      } catch (error) {
+        console.error("Error al cargar historial de ventas:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     cargarHistorial();
   }, []);
 
@@ -48,28 +72,28 @@ export const ClientesPage = () => {
     setLoadingTicket(false);
   };
 
+  // Método modernizado para evitar el error ts(6387) de document.write deprecado
   const imprimirTicket = () => {
     const contenido = document.getElementById('area-impresion-ticket-gerente')?.innerHTML;
     const ventanaImpresion = window.open('', '', 'width=400,height=600');
+    
     if (ventanaImpresion && contenido) {
-      ventanaImpresion.document.write(`
-        <html>
-          <head>
-            <title>Copia de Ticket #${ticketData?.venta_id}</title>
-            <style>
-              body { font-family: 'Courier New', Courier, monospace; width: 80mm; margin: 0; padding: 10px; color: #000; font-size: 12px; }
-              .center { text-align: center; } .right { text-align: right; } .bold { font-weight: bold; }
-              .divider { border-bottom: 1px dashed #000; margin: 8px 0; }
-              table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-              th, td { text-align: left; padding: 2px 0; font-size: 12px; }
-              .header-title { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-            </style>
-          </head>
-          <body>${contenido}</body>
-        </html>
-      `);
-      ventanaImpresion.document.close();
-      ventanaImpresion.focus();
+      // Inyectamos el contenido
+      ventanaImpresion.document.body.innerHTML = contenido;
+      
+      // Inyectamos los estilos de forma segura
+      const style = ventanaImpresion.document.createElement('style');
+      style.textContent = `
+        body { font-family: 'Courier New', Courier, monospace; width: 80mm; margin: 0; padding: 10px; color: #000; font-size: 12px; }
+        .center { text-align: center; } .right { text-align: right; } .bold { font-weight: bold; }
+        .divider { border-bottom: 1px dashed #000; margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 2px 0; font-size: 12px; }
+        .header-title { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+      `;
+      ventanaImpresion.document.head.appendChild(style);
+      ventanaImpresion.document.title = `Copia de Ticket #${ticketData?.venta_id}`;
+      
       setTimeout(() => {
         ventanaImpresion.print();
         ventanaImpresion.close();
@@ -82,10 +106,12 @@ export const ClientesPage = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1e293b' }}>
-            Historial de Clientes y Ventas
+            {userRole === 'GESTOR' ? 'Mis Clientes y Ventas' : 'Historial de Clientes y Ventas'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Registro detallado de ventas en ruta, clientes atendidos y copias de tickets.
+            {userRole === 'GESTOR' 
+              ? 'Registro de clientes atendidos y boletas generadas durante tus rutas.' 
+              : 'Registro detallado de ventas en ruta, clientes atendidos y copias de tickets.'}
           </Typography>
         </Box>
       </Box>
@@ -107,7 +133,11 @@ export const ClientesPage = () => {
             {loading ? (
               <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5 }}><CircularProgress /></TableCell></TableRow>
             ) : historial.length === 0 ? (
-              <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5 }}>No hay ventas registradas aún.</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                  {userRole === 'GESTOR' ? 'Aún no has registrado ventas en tus rutas.' : 'No hay ventas registradas aún.'}
+                </TableCell>
+              </TableRow>
             ) : (
               historial.map((row) => (
                 <TableRow key={row.venta_id} sx={{ '&:last-child td, &:last-child th': { border: 0 }, '&:hover': { bgcolor: '#f1f5f9' } }}>
@@ -142,7 +172,7 @@ export const ClientesPage = () => {
         </Table>
       </TableContainer>
 
-      {/* MODAL: VER TICKET DEL GERENTE */}
+      {/* MODAL: VER TICKET */}
       <Dialog open={openTicket} onClose={() => setOpenTicket(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ textAlign: 'center', bgcolor: '#f8fafc', color: '#0f172a', fontWeight: 'bold', pb: 1 }}>
           Copia de Ticket
@@ -153,7 +183,7 @@ export const ClientesPage = () => {
           ) : (
             <Paper id="area-impresion-ticket-gerente" elevation={3} sx={{ width: '100%', maxWidth: '300px', p: 2, fontFamily: 'monospace', bgcolor: '#fff' }}>
               <div className="center" style={{ textAlign: 'center', fontSize: '18px', fontWeight: 'bold', marginBottom: '5px' }}>CREDI HOGAR</div>
-              <div className="center" style={{ textAlign: 'center' }}>Copia Administrativa</div>
+              <div className="center" style={{ textAlign: 'center' }}>{userRole === 'GESTOR' ? 'Copia de Gestor' : 'Copia Administrativa'}</div>
               <div style={{ borderBottom: '1px dashed #000', margin: '8px 0' }}></div>
               <div><span style={{ fontWeight: 'bold' }}>Ticket:</span> V-{String(ticketData?.venta_id).padStart(6, '0')}</div>
               <div><span style={{ fontWeight: 'bold' }}>Fecha:</span> {ticketData?.fecha_hora}</div>
