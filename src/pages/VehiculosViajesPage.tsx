@@ -7,7 +7,7 @@ import {
   LocalShipping, Map as MapIcon, Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, 
   Close as CloseIcon, DirectionsCar, Route as RouteIcon, Person as PersonIcon, Inventory as InventoryIcon,
   AssignmentTurnedIn as LiquidarIcon, Print as PrintIcon, Storefront as StorefrontIcon, PictureAsPdf as PdfIcon,
-  Badge as BadgeIcon // <-- AQUÍ ESTÁ EL ÍCONO IMPORTADO
+  Badge as BadgeIcon
 } from '@mui/icons-material';
 import { api } from '../api/axiosConfig';
 
@@ -31,7 +31,6 @@ export const VehiculosViajesPage = () => {
   const [vehiculos, setVehiculos] = useState<any[]>([]);
   const [viajes, setViajes] = useState<any[]>([]);
   
-  // SEPARAMOS A LOS TRABAJADORES POR ROL
   const [choferes, setChoferes] = useState<any[]>([]); 
   const [gestores, setGestores] = useState<any[]>([]); 
   
@@ -47,7 +46,6 @@ export const VehiculosViajesPage = () => {
   });
 
   const [openViaje, setOpenViaje] = useState(false);
-  // AGREGAMOS GESTOR AL FORMULARIO DE VIAJE
   const [formViaje, setFormViaje] = useState({
     destino: '', vehiculoId: '', trabajadorId: '', gestorId: '', fecha: new Date().toISOString().split('T')[0] 
   });
@@ -85,7 +83,6 @@ export const VehiculosViajesPage = () => {
 
     try {
       const resUsu = await api.get('/usuarios');
-      // Filtramos las listas para los dropdowns
       setChoferes(resUsu.data.filter((u: any) => u.rol === 'TRABAJADOR' && u.estado === 'ACTIVO'));
       setGestores(resUsu.data.filter((u: any) => u.rol === 'GESTOR' && u.estado === 'ACTIVO'));
     } catch (e) { console.error("Error al cargar usuarios", e); }
@@ -93,7 +90,7 @@ export const VehiculosViajesPage = () => {
     try {
       const resInv = await api.get('/logistica/inventario-almacen');
       setInventarioAlmacen(resInv.data);
-    } catch (e) { console.error("Error al cargar el inventario del almacén", e); }
+    } catch (e) { console.error("Error al cargar el inventario", e); }
 
     setLoading(false);
   };
@@ -102,9 +99,10 @@ export const VehiculosViajesPage = () => {
     cargarDatos();
   }, []);
 
-  // Función genérica para buscar nombres en las listas
+  // Función genérica blindada para buscar nombres
   const obtenerNombrePersonal = (id: number, lista: any[]) => {
-    const persona = lista.find(t => t.id === id);
+    if (!id || !lista) return 'No Asignado';
+    const persona = lista.find(t => t.id.toString() === id.toString());
     return persona ? `${persona.nombre} ${persona.apellidos}` : `No Asignado`;
   };
 
@@ -121,7 +119,7 @@ export const VehiculosViajesPage = () => {
   };
 
   const guardarVehiculo = async () => {
-    if (!formVehiculo.placa || !formVehiculo.marca || !formVehiculo.capacidad) return alert("Placa, Marca y Capacidad soy obligatorios");
+    if (!formVehiculo.placa || !formVehiculo.marca || !formVehiculo.capacidad) return alert("Placa, Marca y Capacidad son obligatorios");
     try {
       const payload = { ...formVehiculo, capacidad: parseFloat(formVehiculo.capacidad) };
       if (isEditing && vehiculoSeleccionado) await api.put(`/logistica/vehiculos/${vehiculoSeleccionado}`, payload);
@@ -137,6 +135,12 @@ export const VehiculosViajesPage = () => {
     }
   };
 
+  // NUEVA FUNCIÓN: Solo se limpia el formulario AL ABRIR, nunca al cerrar.
+  const abrirModalViaje = () => {
+    setFormViaje({ destino: '', vehiculoId: '', trabajadorId: '', gestorId: '', fecha: new Date().toISOString().split('T')[0] });
+    setOpenViaje(true);
+  };
+
   const guardarViaje = async () => {
     if (!formViaje.destino || !formViaje.vehiculoId || !formViaje.trabajadorId || !formViaje.gestorId || !formViaje.fecha) {
       return alert("Todos los datos, incluyendo Chofer y Gestor, son obligatorios.");
@@ -148,8 +152,9 @@ export const VehiculosViajesPage = () => {
         trabajadorId: parseInt(formViaje.trabajadorId),
         gestorId: parseInt(formViaje.gestorId)
       });
-      alert("✅ Viaje programado"); setOpenViaje(false);
-      setFormViaje({ destino: '', vehiculoId: '', trabajadorId: '', gestorId: '', fecha: new Date().toISOString().split('T')[0] });
+      alert("✅ Viaje programado"); 
+      // SOLO CERRAMOS LA VENTANA, NO BORRAMOS EL FORMULARIO AQUÍ PARA EVITAR EL PANTALLAZO BLANCO
+      setOpenViaje(false); 
       cargarDatos();
     } catch (error) { alert("❌ Error al programar el viaje"); }
   };
@@ -621,7 +626,7 @@ export const VehiculosViajesPage = () => {
         {tabIndex === 0 ? (
           <Button variant="contained" startIcon={<AddIcon />} onClick={abrirModalNuevo} sx={{ bgcolor: '#0a348a', textTransform: 'none', borderRadius: 2 }}>Nuevo Vehículo</Button>
         ) : (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenViaje(true)} sx={{ bgcolor: '#0a348a', textTransform: 'none', borderRadius: 2 }}>Programar Viaje</Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={abrirModalViaje} sx={{ bgcolor: '#0a348a', textTransform: 'none', borderRadius: 2 }}>Programar Viaje</Button>
         )}
       </Box>
 
@@ -782,7 +787,6 @@ export const VehiculosViajesPage = () => {
         <DialogActions sx={{ p: 3, pt: 1 }}><Button onClick={() => setOpenVehiculo(false)}>Cancelar</Button><Button variant="contained" onClick={guardarVehiculo} sx={{ bgcolor: '#4f46e5' }}>Guardar</Button></DialogActions>
       </Dialog>
 
-      {/* MODAL PROGRAMAR VIAJE ACTUALIZADO CON CHOFER Y GESTOR */}
       <Dialog open={openViaje} onClose={() => setOpenViaje(false)} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 3, pb: 2, bgcolor: '#fdf4ff', borderBottom: '1px solid #fae8ff' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}><Box sx={{ display: 'flex', p: 1, bgcolor: '#f5d0fe', borderRadius: 2 }}><RouteIcon sx={{ color: '#c026d3' }} /></Box><Typography variant="h6" sx={{ fontWeight: 'bold', color: '#4a044e' }}>Programar Viaje</Typography></Box>
@@ -792,17 +796,21 @@ export const VehiculosViajesPage = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <TextField label="Destino / Ruta" fullWidth value={formViaje.destino} onChange={(e) => setFormViaje({...formViaje, destino: e.target.value})} />
             
+            {/* SE AGREGARON MENUITEMS VACÍOS PARA BLINDAR CONTRA EL PANTALLAZO BLANCO */}
             <TextField select label="Vehículo" fullWidth value={formViaje.vehiculoId} onChange={(e) => setFormViaje({...formViaje, vehiculoId: e.target.value})}>
+              <MenuItem value=""><em>Seleccione un vehículo</em></MenuItem>
               {vehiculos.filter(v => v.estado === 'DISPONIBLE').map((v) => <MenuItem key={v.id} value={v.id.toString()}>{v.placa} - {v.marca}</MenuItem>)}
             </TextField>
             
             <TextField select label="Chofer (Conductor)" fullWidth value={formViaje.trabajadorId} onChange={(e) => setFormViaje({...formViaje, trabajadorId: e.target.value})}>
-              {choferes.length === 0 && <MenuItem disabled value="">No hay choferes disponibles</MenuItem>}
+              <MenuItem value=""><em>Seleccione un chofer</em></MenuItem>
+              {choferes.length === 0 && <MenuItem disabled value="none">No hay choferes disponibles</MenuItem>}
               {choferes.map((t) => <MenuItem key={t.id} value={t.id.toString()}>{t.nombre} {t.apellidos}</MenuItem>)}
             </TextField>
 
             <TextField select label="Gestor de Venta" fullWidth value={formViaje.gestorId} onChange={(e) => setFormViaje({...formViaje, gestorId: e.target.value})}>
-              {gestores.length === 0 && <MenuItem disabled value="">No hay gestores disponibles</MenuItem>}
+              <MenuItem value=""><em>Seleccione un gestor</em></MenuItem>
+              {gestores.length === 0 && <MenuItem disabled value="none">No hay gestores disponibles</MenuItem>}
               {gestores.map((g) => <MenuItem key={g.id} value={g.id.toString()}>{g.nombre} {g.apellidos}</MenuItem>)}
             </TextField>
 
@@ -827,7 +835,8 @@ export const VehiculosViajesPage = () => {
             <Paper elevation={0} sx={{ p: 2, mb: 3, border: '1px solid #e2e8f0', borderRadius: 2 }}>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
                 <TextField select label="Producto del Almacén" fullWidth sx={{ flex: 2, minWidth: 200 }} value={formItem.presentacionId} onChange={handleProductoSelect} size="small">
-                  {inventarioAlmacen.length === 0 ? <MenuItem disabled value="">Sin stock</MenuItem> : inventarioAlmacen.map((p) => <MenuItem key={p.presentacion_id} value={p.presentacion_id.toString()}>{p.producto} - {p.presentacion} (Stock: {p.cantidad})</MenuItem>)}
+                  <MenuItem value=""><em>Seleccione un producto...</em></MenuItem>
+                  {inventarioAlmacen.length === 0 ? <MenuItem disabled value="none">Sin stock</MenuItem> : inventarioAlmacen.map((p) => <MenuItem key={p.presentacion_id} value={p.presentacion_id.toString()}>{p.producto} - {p.presentacion} (Stock: {p.cantidad})</MenuItem>)}
                 </TextField>
                 <TextField label="Cantidad" type="number" size="small" sx={{ flex: 1, minWidth: 100 }} value={formItem.cantidad} onChange={e => setFormItem({...formItem, cantidad: e.target.value})} helperText={`Máx: ${formItem.maxStock}`} />
                 <TextField label="Precio Base (S/)" type="number" size="small" sx={{ flex: 1, minWidth: 120, bgcolor: '#f1f5f9' }} value={formItem.precioVenta} disabled />
