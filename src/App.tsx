@@ -3,13 +3,12 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { InventarioPage } from './pages/InventarioPage';
 import { ClientesPage } from './pages/ClientesPage';
-import { FacturacionPage } from './pages/FacturacionPage';
 import { VehiculosViajesPage } from './pages/VehiculosViajesPage';
 import { TrabajadoresPage } from './pages/TrabajadoresPage';
 import { ProductosPage } from './pages/ProductosPage';
 import { PuntoDeVentaPage } from './pages/PuntoDeVentaPage';
 import { ReportesPage } from './pages/ReportesPage';
-import { SolicitudesPage } from './pages/SolicitudesPage'; // <-- NUEVO IMPORT
+import { SolicitudesPage } from './pages/SolicitudesPage';
 import { Layout } from './components/Layout';
 
 function App() {
@@ -26,8 +25,7 @@ function App() {
           <Route path="/viajes" element={<VehiculosViajesPage />} />
           <Route path="/trabajadores" element={<TrabajadoresPage />} />
           <Route path="/clientes" element={<ClientesPage />} />
-          <Route path="/solicitudes" element={<SolicitudesPage />} /> {/* <-- NUEVA RUTA */}
-          <Route path="/facturacion" element={<FacturacionPage />} />
+          <Route path="/solicitudes" element={<SolicitudesPage />} />
           <Route path="/reportes" element={<ReportesPage />} /> 
         </Route>
         

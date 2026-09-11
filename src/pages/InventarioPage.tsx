@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react';
 import { 
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
-  Button, CircularProgress, Chip, Dialog, DialogContent, DialogActions, TextField, IconButton, MenuItem, DialogTitle, Alert
+  Button, CircularProgress, Chip, Dialog, DialogContent, DialogActions, TextField, IconButton, MenuItem, DialogTitle, Alert,
+  InputAdornment, TablePagination
 } from '@mui/material';
-import { Add as AddIcon, Refresh as RefreshIcon, Close as CloseIcon, Inventory as InventoryIcon } from '@mui/icons-material';
+import { Add as AddIcon, Close as CloseIcon, Inventory as InventoryIcon, Search as SearchIcon } from '@mui/icons-material';
 import { api } from '../api/axiosConfig';
 
 export const InventarioPage = () => {
   const [inventario, setInventario] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // --- ESTADOS PARA BÚSQUEDA Y PAGINACIÓN ---
+  const [busqueda, setBusqueda] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // --- ESTADOS PARA EL MODAL DE REGISTRAR ENTRADA ---
   const [openEntrada, setOpenEntrada] = useState(false);
@@ -23,7 +29,6 @@ export const InventarioPage = () => {
   const cargarInventario = async () => {
     setLoading(true);
     try {
-      // 1. Ruta actualizada a la vista del backend
       const res = await api.get('/inventario/vista');
       setInventario(res.data);
     } catch (error) {
@@ -34,7 +39,6 @@ export const InventarioPage = () => {
 
   const cargarPresentaciones = async () => {
     try {
-      // 2. Ruta actualizada para las presentaciones activas
       const res = await api.get('/inventario/vista/presentaciones');
       setPresentaciones(res.data);
     } catch (error) {
@@ -46,6 +50,31 @@ export const InventarioPage = () => {
     cargarInventario();
     cargarPresentaciones();
   }, []);
+
+  // --- LÓGICA DE BÚSQUEDA Y FILTRADO ---
+  const inventarioFiltrado = inventario.filter(item => {
+    const termino = busqueda.toLowerCase();
+    return (
+      (item.sku && item.sku.toLowerCase().includes(termino)) ||
+      (item.producto && item.producto.toLowerCase().includes(termino)) ||
+      (item.presentacion && item.presentacion.toLowerCase().includes(termino)) ||
+      (item.ubicacion && item.ubicacion.toLowerCase().includes(termino))
+    );
+  });
+
+  // --- LÓGICA DE PAGINACIÓN ---
+  // SOLUCIÓN AL AVISO: Se le agrega un guion bajo (_event) para que TypeScript sepa que es intencional no usarlo.
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Inventario a mostrar en la página actual
+  const inventarioPaginado = inventarioFiltrado.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const abrirModalEntrada = () => {
     setFormEntrada({ presentacionId: '', cantidad: '', motivo: 'Compra a proveedor', documentoReferencia: '' });
@@ -61,7 +90,6 @@ export const InventarioPage = () => {
     }
 
     try {
-      // 3. Ruta actualizada al POST de entradas respetando tu arquitectura
       await api.post('/inventario/entradas', {
         ubicacionDestinoId: 1, // Siempre al Almacén Principal por defecto
         presentacionId: parseInt(formEntrada.presentacionId),
@@ -85,13 +113,33 @@ export const InventarioPage = () => {
           <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1e293b' }}>Gestión de Inventario</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={cargarInventario} sx={{ fontWeight: 'bold', textTransform: 'none', borderRadius: 2 }}>
-            Actualizar
-          </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={abrirModalEntrada} sx={{ bgcolor: '#0a348a', textTransform: 'none', borderRadius: 2 }}>
             Registrar Entrada
           </Button>
         </Box>
+      </Box>
+
+      {/* BARRA DE BÚSQUEDA */}
+      <Box sx={{ mb: 3 }}>
+        <TextField 
+          fullWidth 
+          placeholder="Buscar por SKU, producto, presentación o ubicación..." 
+          value={busqueda} 
+          onChange={(e) => {
+            setBusqueda(e.target.value);
+            setPage(0); // Regresar a la página 1 al buscar
+          }} 
+          slotProps={{ 
+            input: { 
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: '#94a3b8' }} />
+                </InputAdornment>
+              ),
+              sx: { bgcolor: '#ffffff', borderRadius: 2 }
+            } 
+          }}
+        />
       </Box>
 
       <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
@@ -110,16 +158,15 @@ export const InventarioPage = () => {
             <TableBody>
               {loading ? (
                 <TableRow><TableCell colSpan={6} align="center" sx={{ py: 5 }}><CircularProgress /></TableCell></TableRow>
-              ) : inventario.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 5 }}>No hay registros de inventario.</TableCell></TableRow>
+              ) : inventarioFiltrado.length === 0 ? (
+                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 5 }}>No se encontraron resultados para tu búsqueda.</TableCell></TableRow>
               ) : (
-                inventario.map((row, index) => (
+                inventarioPaginado.map((row, index) => (
                   <TableRow key={index} sx={{ '&:hover': { bgcolor: '#f1f5f9' } }}>
                     <TableCell sx={{ fontWeight: 'bold', color: '#0a348a' }}>{row.sku}</TableCell>
                     <TableCell>{row.producto}</TableCell>
                     <TableCell>{row.presentacion}</TableCell>
                     <TableCell>{row.ubicacion}</TableCell>
-                    {/* SOLUCIÓN: Cambiamos row.stock por row.cantidad */}
                     <TableCell align="center" sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{row.cantidad}</TableCell>
                     <TableCell align="center">
                       <Chip 
@@ -136,6 +183,19 @@ export const InventarioPage = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        
+        {/* PAGINACIÓN */}
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50]}
+          component="div"
+          count={inventarioFiltrado.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="Filas por página:"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+        />
       </Paper>
 
       {/* MODAL REGISTRAR ENTRADA */}

@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { 
   Menu as MenuIcon, Dashboard, Inventory, LocalShipping, 
-  People, Receipt, Logout, Badge as BadgeIcon, PointOfSale,
+  People, Logout, Badge as BadgeIcon, PointOfSale,
   Assessment as AssessmentIcon, LocalOffer, Assignment as AssignmentIcon
 } from '@mui/icons-material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
@@ -50,7 +50,7 @@ export const Layout = () => {
     navigate('/');
   };
 
-  // AGREGAMOS LA VISTA "SOLICITUDES"
+  // ELIMINADA LA VISTA "FACTURACIÓN"
   const allMenuItems = [
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
     { text: 'Punto de Venta', icon: <PointOfSale />, path: '/punto-venta' },
@@ -59,8 +59,7 @@ export const Layout = () => {
     { text: 'Vehículos y Viajes', icon: <LocalShipping />, path: '/viajes' },
     { text: 'Personal', icon: <BadgeIcon />, path: '/trabajadores' },
     { text: 'Clientes', icon: <People />, path: '/clientes' },
-    { text: 'Solicitudes', icon: <AssignmentIcon />, path: '/solicitudes' }, // <-- NUEVO
-    { text: 'Facturación', icon: <Receipt />, path: '/facturacion' },
+    { text: 'Solicitudes', icon: <AssignmentIcon />, path: '/solicitudes' },
     { text: 'Reportes', icon: <AssessmentIcon />, path: '/reportes' },
   ];
 
