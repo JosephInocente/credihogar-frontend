@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
 import { 
   Box, Typography, Button, CircularProgress, Dialog, DialogContent, DialogActions, 
-  TextField, IconButton, DialogTitle, Card, CardContent, CardActions, Chip, Divider, Tooltip
+  TextField, IconButton, DialogTitle, Card, CardContent, CardActions, Chip, Divider, Tooltip, InputAdornment
 } from '@mui/material';
 import { 
   Add as AddIcon, Close as CloseIcon, CloudUpload as UploadIcon, Layers as LayersIcon, 
-  LocalOffer as PriceIcon, Edit as EditIcon, Delete as DeleteIcon, Warning as WarningIcon 
+  LocalOffer as PriceIcon, Edit as EditIcon, Delete as DeleteIcon, Warning as WarningIcon,
+  Search as SearchIcon
 } from '@mui/icons-material';
 import { api } from '../api/axiosConfig';
 
 export const ProductosPage = () => {
   const [productos, setProductos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState('GERENTE'); // NUEVO: Estado para el Rol
+  const [busqueda, setBusqueda] = useState(''); // NUEVO: Estado para la búsqueda
 
   // Estados para Modal de Producto
   const [openProducto, setOpenProducto] = useState(false);
@@ -28,12 +31,25 @@ export const ProductosPage = () => {
     nombre: '', unidad_base: 'Unidad', factor_conversion: 1, precio_compra_referencial: '', precio_venta: '', codigo_barras: ''
   });
 
-  // NUEVO: Estados para Modales de Confirmación de Eliminación
+  // Estados para Modales de Confirmación de Eliminación
   const [openConfirmDeleteProd, setOpenConfirmDeleteProd] = useState(false);
   const [prodToDelete, setProdToDelete] = useState<number | null>(null);
   
   const [openConfirmDeletePres, setOpenConfirmDeletePres] = useState(false);
   const [presToDelete, setPresToDelete] = useState<number | null>(null);
+
+  useEffect(() => {
+    // NUEVO: Identificar si el usuario es GESTOR o GERENTE
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUserRole(payload.rol || payload.role || 'GERENTE');
+      } catch (e) { console.error(e); }
+    }
+
+    cargarProductos();
+  }, []);
 
   const cargarProductos = async () => {
     setLoading(true);
@@ -46,9 +62,14 @@ export const ProductosPage = () => {
     setLoading(false);
   };
 
-  useEffect(() => {
-    cargarProductos();
-  }, []);
+  // NUEVO: Lógica de Filtrado Inteligente
+  const productosFiltrados = productos.filter(prod => {
+    const termino = busqueda.toLowerCase();
+    return prod.nombre.toLowerCase().includes(termino) || 
+           prod.sku.toLowerCase().includes(termino) || 
+           prod.marca.toLowerCase().includes(termino) || 
+           prod.categoria.toLowerCase().includes(termino);
+  });
 
   // --- LÓGICA DE CLOUDINARY ---
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,7 +127,7 @@ export const ProductosPage = () => {
     }
   };
 
-  // --- NUEVA LÓGICA: ELIMINAR PRODUCTO CON MODAL ---
+  // --- ELIMINAR PRODUCTO CON MODAL ---
   const triggerDeleteProducto = (id: number) => {
     setProdToDelete(id);
     setOpenConfirmDeleteProd(true);
@@ -145,7 +166,7 @@ export const ProductosPage = () => {
     }
   };
 
-  // --- NUEVA LÓGICA: ELIMINAR PRESENTACIÓN CON MODAL ---
+  // --- ELIMINAR PRESENTACIÓN CON MODAL ---
   const triggerDeletePresentacion = (id: number) => {
     setPresToDelete(id);
     setOpenConfirmDeletePres(true);
@@ -165,29 +186,55 @@ export const ProductosPage = () => {
 
   return (
     <Box sx={{ p: 1 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: '900', color: '#0f172a' }}>Catálogo de Productos</Typography>
-          <Typography variant="body1" color="text.secondary">Gestiona tus productos, imágenes y precios de venta.</Typography>
+          <Typography variant="body1" color="text.secondary">
+            {userRole === 'GESTOR' ? 'Consulta de precios y presentaciones para ventas en ruta.' : 'Gestiona tus productos, imágenes y precios de venta.'}
+          </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={abrirModalNuevoProducto} sx={{ bgcolor: '#0a348a', textTransform: 'none', borderRadius: 2 }}>
-          Nuevo Producto
-        </Button>
+        {/* EL GESTOR NO PUEDE CREAR PRODUCTOS */}
+        {userRole === 'GERENTE' && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={abrirModalNuevoProducto} sx={{ bgcolor: '#0a348a', textTransform: 'none', borderRadius: 2 }}>
+            Nuevo Producto
+          </Button>
+        )}
+      </Box>
+
+      {/* NUEVO: BARRA DE BÚSQUEDA INTEGRADA */}
+      <Box sx={{ mb: 4 }}>
+        <TextField 
+          fullWidth 
+          placeholder="Buscar producto por nombre, SKU, marca o categoría..." 
+          value={busqueda} 
+          onChange={(e) => setBusqueda(e.target.value)} 
+          slotProps={{ 
+            input: { 
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: '#94a3b8' }} />
+                </InputAdornment>
+              ),
+              sx: { bgcolor: '#ffffff', borderRadius: 2 }
+            } 
+          }}
+        />
       </Box>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress /></Box>
       ) : (
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 3 }}>
-          {productos.map((prod) => (
+          {productosFiltrados.map((prod) => (
             <Card key={prod.id} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
               
-              {/* Botones de acción del producto */}
-              <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 0.5, bgcolor: 'rgba(255,255,255,0.8)', borderRadius: 2 }}>
-                <Tooltip title="Editar Producto"><IconButton size="small" color="primary" onClick={() => abrirModalEditarProducto(prod)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                {/* AQUI SE LLAMA AL NUEVO MODAL DE PRODUCTO */}
-                <Tooltip title="Eliminar Producto"><IconButton size="small" color="error" onClick={() => triggerDeleteProducto(prod.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
-              </Box>
+              {/* EL GESTOR NO VE LOS BOTONES DE EDITAR Y ELIMINAR */}
+              {userRole === 'GERENTE' && (
+                <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 0.5, bgcolor: 'rgba(255,255,255,0.8)', borderRadius: 2 }}>
+                  <Tooltip title="Editar Producto"><IconButton size="small" color="primary" onClick={() => abrirModalEditarProducto(prod)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                  <Tooltip title="Eliminar Producto"><IconButton size="small" color="error" onClick={() => triggerDeleteProducto(prod.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                </Box>
+              )}
 
               <Box sx={{ height: 220, bgcolor: '#ffffff', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
                 <img 
@@ -221,18 +268,24 @@ export const ProductosPage = () => {
                       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{pres.nombre}</Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#16a34a', fontWeight: '900' }}>S/ {pres.precio_venta}</Typography>
-                        {/* AQUI SE LLAMA AL NUEVO MODAL DE PRESENTACION */}
-                        <IconButton size="small" onClick={() => triggerDeletePresentacion(pres.id)} sx={{ p: 0.5, color: '#ef4444' }}><CloseIcon fontSize="small" /></IconButton>
+                        {/* EL GESTOR NO VE EL BOTÓN DE ELIMINAR PRESENTACIÓN */}
+                        {userRole === 'GERENTE' && (
+                          <IconButton size="small" onClick={() => triggerDeletePresentacion(pres.id)} sx={{ p: 0.5, color: '#ef4444' }}><CloseIcon fontSize="small" /></IconButton>
+                        )}
                       </Box>
                     </Box>
                   ))
                 )}
               </CardContent>
-              <CardActions sx={{ p: 2, pt: 0 }}>
-                <Button fullWidth variant="outlined" startIcon={<PriceIcon />} onClick={() => abrirModalPresentacion(prod)} sx={{ textTransform: 'none', borderRadius: 2 }}>
-                  Añadir Precio / Presentación
-                </Button>
-              </CardActions>
+              
+              {/* EL GESTOR NO VE EL BOTÓN DE AGREGAR PRECIO */}
+              {userRole === 'GERENTE' && (
+                <CardActions sx={{ p: 2, pt: 0 }}>
+                  <Button fullWidth variant="outlined" startIcon={<PriceIcon />} onClick={() => abrirModalPresentacion(prod)} sx={{ textTransform: 'none', borderRadius: 2 }}>
+                    Añadir Precio / Presentación
+                  </Button>
+                </CardActions>
+              )}
             </Card>
           ))}
         </Box>
@@ -306,7 +359,7 @@ export const ProductosPage = () => {
         <DialogActions sx={{ p: 3, pt: 0 }}><Button onClick={() => setOpenPresentacion(false)}>Cancelar</Button><Button variant="contained" onClick={guardarPresentacion} sx={{ bgcolor: '#16a34a' }}>Guardar Precio</Button></DialogActions>
       </Dialog>
 
-      {/* NUEVO: MODAL CONFIRMAR ELIMINAR PRODUCTO MAESTRO */}
+      {/* MODAL CONFIRMAR ELIMINAR PRODUCTO MAESTRO */}
       <Dialog open={openConfirmDeleteProd} onClose={() => setOpenConfirmDeleteProd(false)} sx={{ '& .MuiDialog-paper': { borderRadius: 3, p: 1 } }}>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#dc2626', fontWeight: 'bold' }}>
           <WarningIcon /> Confirmar Eliminación
@@ -321,7 +374,7 @@ export const ProductosPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* NUEVO: MODAL CONFIRMAR ELIMINAR PRESENTACIÓN */}
+      {/* MODAL CONFIRMAR ELIMINAR PRESENTACIÓN */}
       <Dialog open={openConfirmDeletePres} onClose={() => setOpenConfirmDeletePres(false)} sx={{ '& .MuiDialog-paper': { borderRadius: 3, p: 1 } }}>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#dc2626', fontWeight: 'bold' }}>
           <WarningIcon /> Quitar Presentación
