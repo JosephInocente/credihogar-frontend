@@ -144,8 +144,8 @@ export const SolicitudesPage = () => {
 
   // --- LÓGICA GERENTE: GENERAR PDF DIRECTO A OTRA PESTAÑA ---
   const generarPDFDirecto = async (sol: any) => {
-    // Abrir ventana primero para que el navegador no bloquee el pop-up
-    const ventana = window.open('', '', 'width=800,height=600');
+    // Abrir en una pestaña nueva usando '_blank'
+    const ventana = window.open('', '_blank');
     if (!ventana) {
       alert("Por favor, permite las ventanas emergentes (pop-ups) en tu navegador.");
       return;
@@ -153,7 +153,6 @@ export const SolicitudesPage = () => {
     ventana.document.write('<div style="font-family: sans-serif; padding: 20px;">Generando documento PDF...</div>');
 
     try {
-      // Traer los detalles de la solicitud de la BD
       const res = await api.get(`/solicitudes/${sol.id}/detalles`);
       const detallesPDF = res.data;
 
