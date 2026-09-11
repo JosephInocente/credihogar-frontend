@@ -6,7 +6,8 @@ import {
 } from '@mui/material';
 import { 
   Add as AddIcon, Search as SearchIcon, Visibility as VisibilityIcon, 
-  CheckCircle, Cancel, Delete as DeleteIcon, Remove as RemoveIcon
+  CheckCircle, Cancel, Delete as DeleteIcon, Remove as RemoveIcon,
+  PictureAsPdf as PictureAsPdfIcon
 } from '@mui/icons-material';
 import { api } from '../api/axiosConfig';
 
@@ -122,7 +123,7 @@ export const SolicitudesPage = () => {
     p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || p.sku.toLowerCase().includes(busqueda.toLowerCase())
   );
 
-  // --- LÓGICA GERENTE: VER Y ATENDER SOLICITUDES ---
+  // --- LÓGICA GERENTE: VER, ATENDER E IMPRIMIR SOLICITUDES ---
   const verDetalles = async (sol: any) => {
     setSolicitudSeleccionada(sol);
     setOpenDetalles(true);
@@ -139,6 +140,93 @@ export const SolicitudesPage = () => {
       setOpenDetalles(false);
       recargarSolicitudes();
     } catch (e) { alert("Error al cambiar estado"); }
+  };
+
+  // NUEVA FUNCIÓN: Genera un PDF/Imprimible formal para el almacén
+  const imprimirSolicitud = () => {
+    const ventana = window.open('', '', 'width=800,height=600');
+    if (!ventana) return;
+
+    const fechaSolicitud = solicitudSeleccionada?.fecha_hora 
+      ? new Date(solicitudSeleccionada.fecha_hora).toLocaleString('es-PE') 
+      : '--/--/----';
+
+    const htmlContent = `
+      <div class="header">
+        <h1>CREDI HOGAR PLUS</h1>
+        <h2>Orden de Despacho y Reabastecimiento</h2>
+      </div>
+      
+      <div class="info-box">
+        <p><strong>N° de Requerimiento:</strong> REQ-${solicitudSeleccionada?.id}</p>
+        <p><strong>Gestor Solicitante:</strong> ${solicitudSeleccionada?.gestor?.toUpperCase()}</p>
+        <p><strong>Fecha de Emisión:</strong> ${fechaSolicitud}</p>
+        <p><strong>Estado Actual:</strong> ${solicitudSeleccionada?.estado}</p>
+        <p><strong>Notas del Gestor:</strong> ${solicitudSeleccionada?.notas || 'Sin anotaciones adicionales.'}</p>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 10%;">N°</th>
+            <th style="width: 50%;">Producto</th>
+            <th style="width: 20%;">Presentación</th>
+            <th style="width: 20%; text-align: center;">Cant. Solicitada</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${detallesSolicitud.map((item, index) => `
+            <tr>
+              <td style="text-align: center;">${index + 1}</td>
+              <td>${item.producto}</td>
+              <td>${item.presentacion}</td>
+              <td style="text-align: center; font-weight: bold; font-size: 16px;">${item.cantidad}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <p>Documento de uso interno - Generado el ${new Date().toLocaleString('es-PE')}</p>
+        <div class="firmas">
+          <div>
+            ________________________________<br>
+            <strong>Firma del Gestor</strong><br>
+            Recibí conforme
+          </div>
+          <div>
+            ________________________________<br>
+            <strong>Firma de Almacén</strong><br>
+            Despachado por
+          </div>
+        </div>
+      </div>
+    `;
+
+    ventana.document.body.innerHTML = htmlContent;
+
+    const style = ventana.document.createElement('style');
+    style.textContent = `
+      body { font-family: 'Arial', sans-serif; padding: 25px; color: #333; }
+      .header { text-align: center; border-bottom: 2px solid #0a348a; padding-bottom: 15px; margin-bottom: 25px; }
+      .header h1 { margin: 0; color: #0a348a; font-size: 26px; }
+      .header h2 { margin: 5px 0 0 0; color: #475569; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
+      .info-box { border: 1px solid #cbd5e1; padding: 15px 20px; margin-bottom: 25px; border-radius: 8px; background: #f8fafc; }
+      .info-box p { margin: 8px 0; font-size: 14px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+      th, td { border: 1px solid #cbd5e1; padding: 12px; }
+      th { background-color: #0a348a; color: white; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #64748b; }
+      .firmas { display: flex; justify-content: space-around; margin-top: 60px; font-size: 14px; color: #333; }
+    `;
+    
+    ventana.document.head.appendChild(style);
+    ventana.document.title = `Solicitud_Stock_REQ_${solicitudSeleccionada?.id}`;
+
+    setTimeout(() => {
+      ventana.print();
+      ventana.close();
+    }, 250);
   };
 
   return (
@@ -328,15 +416,27 @@ export const SolicitudesPage = () => {
             </Table>
           </TableContainer>
         </DialogContent>
-        <DialogActions sx={{ p: 3, justifyContent: userRole === 'GERENTE' && solicitudSeleccionada?.estado === 'PENDIENTE' ? 'space-between' : 'center' }}>
-          {userRole === 'GERENTE' && solicitudSeleccionada?.estado === 'PENDIENTE' ? (
-            <>
-              <Button variant="outlined" color="error" startIcon={<Cancel />} onClick={() => cambiarEstado(solicitudSeleccionada.id, 'RECHAZADA')} sx={{ fontWeight: 'bold' }}>Rechazar Pedido</Button>
-              <Button variant="contained" color="success" startIcon={<CheckCircle />} onClick={() => cambiarEstado(solicitudSeleccionada.id, 'ATENDIDA')} sx={{ fontWeight: 'bold' }}>Aprobar (Atendido)</Button>
-            </>
+        
+        {/* FOOTER DEL MODAL: PDF A LA IZQUIERDA, BOTONES A LA DERECHA */}
+        <DialogActions sx={{ p: 3, justifyContent: 'space-between', bgcolor: '#f8fafc' }}>
+          {userRole === 'GERENTE' ? (
+            <Button variant="outlined" color="primary" startIcon={<PictureAsPdfIcon />} onClick={imprimirSolicitud} sx={{ fontWeight: 'bold', textTransform: 'none' }}>
+              Exportar a PDF
+            </Button>
           ) : (
-            <Button onClick={() => setOpenDetalles(false)} variant="outlined" sx={{ fontWeight: 'bold' }}>Cerrar</Button>
+            <Box /> // Caja vacía para mantener alineación del Gestor
           )}
+
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            {userRole === 'GERENTE' && solicitudSeleccionada?.estado === 'PENDIENTE' ? (
+              <>
+                <Button variant="outlined" color="error" startIcon={<Cancel />} onClick={() => cambiarEstado(solicitudSeleccionada.id, 'RECHAZADA')} sx={{ fontWeight: 'bold', textTransform: 'none' }}>Rechazar Pedido</Button>
+                <Button variant="contained" color="success" startIcon={<CheckCircle />} onClick={() => cambiarEstado(solicitudSeleccionada.id, 'ATENDIDA')} sx={{ fontWeight: 'bold', textTransform: 'none' }}>Aprobar (Atender)</Button>
+              </>
+            ) : (
+              <Button onClick={() => setOpenDetalles(false)} variant="outlined" sx={{ fontWeight: 'bold', textTransform: 'none' }}>Cerrar</Button>
+            )}
+          </Box>
         </DialogActions>
       </Dialog>
     </Box>
